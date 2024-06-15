@@ -213,7 +213,7 @@ H.compile_and_capture = function(popup)
 
 	GeneroTools.diagnostics = diagnostics
 
-	vim.diagnostic.set(GeneroTools.ns, vim.fn.bufnr(0), diagnostics)
+	vim.diagnostic.set(GeneroTools.ns, vim.api.nvim_get_current_buf(), diagnostics)
 
 	-- display compile output in floating window
 	if popup then

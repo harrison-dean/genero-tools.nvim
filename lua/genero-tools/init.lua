@@ -670,9 +670,12 @@ H.open_table_popup = function(tablename)
 	local filename = "t_definetable.sql"
 	local sqlfile = io.open(filename, "w")
 	local sql = "SELECT colname, coltype, collength FROM syscolumns WHERE tabid = (SELECT tabid FROM systables WHERE tabname = '" .. tablename .. "');"
-	io.output(sqlfile)
-	io.write(sql)
-	io.close()
+
+	if sqlfile ~= nil then
+		io.output(sqlfile)
+		io.write(sql)
+		io.close()
+	end
 
 	-- run dbaccess on current word to get columns in this table
 	local cmd = "dbaccess trunkdev@electra_ids " .. filename

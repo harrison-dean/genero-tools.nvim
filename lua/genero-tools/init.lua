@@ -29,7 +29,7 @@ GeneroTools.config = {
 	options = {
 		basic = true,
 		heart = false,
-		hover_define = false
+		hover_define = true,
 	},
 	mappings = {
 		basic = true,
@@ -54,6 +54,11 @@ H.setup_config = function(config)
 		['mappings.basic'] = { config.mappings.basic, 'boolean' },
 	})
 
+	-- custom mappings
+	if not config.mappings.basic then
+		-- TODO med: get from config
+	end
+
 	return config
 end
 
@@ -66,9 +71,8 @@ H.apply_config = function(config)
 end
 
 -- Options --------------------------------------------------------------------
---stylua: ignore
 H.apply_options = function(config)
-
+	-- TODO low: what options? highlights?
 end
 
 -- Mappings -------------------------------------------------------------------
@@ -77,7 +81,7 @@ H.apply_mappings = function(config)
 	-- build temporary code tag
 	local temp_code_tag = "#TMP"
 	if os.getenv("USER") ~= nil then
-		temp_code_tag = temp_code_tag .. string.upper(string.sub(os.getenv("USER"), 1, 2))	
+		temp_code_tag = temp_code_tag .. string.upper(string.sub(tostring(os.getenv("USER")), 1, 2))
 	end
 	temp_code_tag = temp_code_tag
 
@@ -94,7 +98,7 @@ H.apply_mappings = function(config)
 			{ desc = "Insert TMP tag" })
 		map("n", "<F2>", function() H.write_debug("display") end,
 			{ desc = "Insert display for variable" })
-		map("n", "<F3>", function() H.write_debug("string") end,
+		map("n", "<F3>", function() H.write_debug("str") end,
 			{ desc = "Insert CALL elt_debug([input str])"})
 		map("n", "<F4>", function() H.write_debug("var") end,
 			{ desc = "Insert lines to CALL elt_debug variable value" })
@@ -121,7 +125,7 @@ H.apply_autocommands = function(config)
 	-- autocmd to close popups
 	au({"CursorMoved", "CursorMovedI"}, "*.4gl, *.per", function() H.close_popups() end, "Automatically close genero-tools popups when cursor moves")
 
-	if GeneroTools.config.options.hover_define then
+	if config.options.hover_define then
 		au({"CursorHold", "CursorHoldI"}, "*.4gl,*.per", function() H.define_under_cursor(false) end, "Automatically open popup definition of word under cursor when cursor held")
 	end
 end
@@ -209,7 +213,7 @@ H.compile_and_capture = function(popup)
 
 	GeneroTools.diagnostics = diagnostics
 
-	vim.diagnostic.set(GeneroTools.ns, vim.fn.bufnr("%"), diagnostics)
+	vim.diagnostic.set(GeneroTools.ns, vim.fn.bufnr(0), diagnostics)
 
 	-- display compile output in floating window
 	if popup then
@@ -344,7 +348,7 @@ H.write_line = function(line)
 	local cur_col = vim.fn.col(".")
 	local indent_width = 4
 	local indent = string.rep(" ", (cur_col - 1) * indent_width)
-	vim.fn.setline(".", cur_line)
+	vim.fn.setline(vim.fn.line("."), cur_line)
 	vim.api.nvim_buf_set_lines(0, vim.fn.line(".")-1, vim.fn.line(".")-1, false, { indent .. line})
 end
 

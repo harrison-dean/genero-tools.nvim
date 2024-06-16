@@ -5,7 +5,7 @@ A Neovim plugin to provide some LSP-like functionalities for the Genero language
 
 ## config
 There are some (TODO more) basic config settings. Below are defaults
-'''
+```
 GeneroTools.config = {
 	options = {
 		heart = false,                  -- display ascii heart on F5 (compile)
@@ -17,7 +17,7 @@ GeneroTools.config = {
 	}
 }
 
-'''
+```
 
 ## functionalities
 Below are the functionalities this plugin provides for the Genero language:

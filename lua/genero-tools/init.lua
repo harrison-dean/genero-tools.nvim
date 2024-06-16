@@ -27,7 +27,6 @@ end
 
 GeneroTools.config = {
 	options = {
-		basic = true,
 		heart = false,
 		hover_define = true,
 		hover_define_insert = false,
@@ -49,7 +48,6 @@ H.setup_config = function(config)
 	})
 
 	vim.validate({
-		['options.basic'] = { config.options.basic, 'boolean' },
 		['options.heart'] = { config.options.heart, 'boolean' },
 		['options.hover_define'] = { config.options.hover_define, 'boolean' },
 		['options.hover_define_insert'] = { config.options.hover_define_insert, 'boolean' },

@@ -30,6 +30,7 @@ GeneroTools.config = {
 		basic = true,
 		heart = false,
 		hover_define = true,
+		hover_define_insert = false,
 	},
 	mappings = {
 		basic = true,
@@ -51,6 +52,7 @@ H.setup_config = function(config)
 		['options.basic'] = { config.options.basic, 'boolean' },
 		['options.heart'] = { config.options.heart, 'boolean' },
 		['options.hover_define'] = { config.options.hover_define, 'boolean' },
+		['options.hover_define_insert'] = { config.options.hover_define_insert, 'boolean' },
 		['mappings.basic'] = { config.mappings.basic, 'boolean' },
 	})
 
@@ -126,7 +128,10 @@ H.apply_autocommands = function(config)
 	au({"CursorMoved", "CursorMovedI"}, "*.4gl, *.per", function() H.close_popups() end, "Automatically close genero-tools popups when cursor moves")
 
 	if config.options.hover_define then
-		au({"CursorHold", "CursorHoldI"}, "*.4gl,*.per", function() H.define_under_cursor(false) end, "Automatically open popup definition of word under cursor when cursor held")
+		au("CursorHold", "*.4gl,*.per", function() H.define_under_cursor(false) end, "Automatically open popup definition of word under cursor when cursor held in normal mode")
+	end
+	if config.options.hover_define_insert then
+		au("CursorHoldI", "*.4gl,*.per", function() H.define_under_cursor(false) end, "Automatically open popup definition of word under cursor when cursor held in insert mode")
 	end
 end
 
@@ -381,12 +386,12 @@ H.define_under_cursor = function(external_funcs)
 	-- skip anything that has no syntax match
 	if next(syntax) ~= nil then
 		if H.syntax_exists(syntax, "fglFunc") then
-			pattern = "^%s*FUNCTION%s+" .. cur_word
+			pattern = "^%s*FUNCTION%s+" .. cur_word .. "%s+"
 			lines_around = 2
 		elseif H.syntax_exists(syntax, {"fglVarM", "fglVarL", "fglVarP"}) then
-			pattern = "%s*DEFINE%s+" .. cur_word
+			pattern = "%s*DEFINE%s+" .. cur_word .. "%s+"
 		elseif H.syntax_exists(syntax, "fglCurs") then
-			pattern = "&%s*DECLARE%s+" .. cur_word
+			pattern = "&%s*DECLARE%s+" .. cur_word .. "%s+"
 			lines_around = 5
 		elseif H.syntax_exists(syntax, "fglTable") then
 			return H.open_table_popup(cur_word)

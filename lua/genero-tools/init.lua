@@ -300,7 +300,7 @@ H.parse_compile_output = function(output)
 		-- only parse lines containing error/warning (for Genero)
 		if string.find(line, ":warning:") or string.find(line, ":error:") then
 			-- match parts of output string
-			local pattern = "%w+%.%w+:(%d+):(%d+):(%d+):(%d+):(%w+):%((-?%d+)%) (%w+.+)"
+			local pattern = "%w+%.%w+:(%d+):(%d+):(%d+):(%d+):(%w+):%((-?%d+)%) (.*)$"
 			local startline, startcol, endline,
 				endcol, type, errcode, errdesc = string.match(line, pattern)
 

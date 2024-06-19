@@ -292,7 +292,7 @@ H.parse_compile_output = function(output)
 	local diagnostics = {}
 	for line_num, line in ipairs(output) do
 		-- ignore lines e.g. ignoring CSCMENU from .per
-		if string.find(line, "***") then
+		if string.find(line, "%*%*%*") then
 			break
 		end
 

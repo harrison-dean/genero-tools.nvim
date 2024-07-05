@@ -123,7 +123,7 @@ H.apply_autocommands = function(config)
 	au({"BufReadPost", "BufWritePost"}, "*.4gl,*.per", function() H.compile_and_capture(false) end, "Generate diagnostics from compile results when buffer read/opened")
 
 	-- autocmd to close popups
-	au({"CursorMoved", "CursorMovedI"}, "*.4gl, *.per", function() H.close_popups() end, "Automatically close genero-tools popups when cursor moves")
+	au({"CursorMoved", "CursorMovedI"}, "*.4gl,*.per", function() H.close_popups() end, "Automatically close genero-tools popups when cursor moves")
 
 	if config.options.hover_define then
 		au("CursorHold", "*.4gl,*.per", function() H.define_under_cursor(false) end, "Automatically open popup definition of word under cursor when cursor held in normal mode")
@@ -350,7 +350,7 @@ H.write_line = function(line)
 	local cur_line = vim.fn.getline(".")
 	local cur_col = vim.fn.col(".")
 	local indent_width = 4
-	local indent = string.rep(" ", (cur_col - 1) * indent_width)
+	local indent = string.rep(" ", (cur_col))
 	vim.fn.setline(vim.fn.line("."), cur_line)
 	vim.api.nvim_buf_set_lines(0, vim.fn.line(".")-1, vim.fn.line(".")-1, false, { indent .. line})
 end

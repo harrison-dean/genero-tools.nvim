@@ -405,6 +405,13 @@ H.define_under_cursor = function(external_funcs)
 		if found_line_num > 0 then
 			local lines = vim.api.nvim_buf_get_lines(buf, found_line_num-lines_around, found_line_num+lines_around+1, false)
 			if #lines > 0 then
+				-- append key value if current word is an EK variable
+				if string.find(cur_word, "_EK_") then
+					local key = string.sub(cur_word, 6)
+					local key_value = H.get_ekey_value(key)
+					table.insert(lines, "Key value: " .. key_value)
+				end
+
 				return H.open_cursor_popup(-3, 0, "", lines)
 			end
 		elseif H.syntax_exists(syntax, "fglFunc") and external_funcs == true then
@@ -412,6 +419,13 @@ H.define_under_cursor = function(external_funcs)
 			require("telescope.builtin").grep_string({search="FUNCTION "..cur_word})
 		end
 	end
+end
+
+H.get_ekey_value = function(key)
+	local cmd = "fglrun getekey " .. key
+	local value = vim.fn.systemlist(cmd)[1]
+
+	return value
 end
 
 H.syntax_exists = function(syntaxes, hlgroup)

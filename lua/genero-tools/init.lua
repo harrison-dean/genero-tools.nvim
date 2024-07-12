@@ -409,7 +409,8 @@ H.define_under_cursor = function(external_funcs)
 				if string.find(cur_word, "_EK_") then
 					local key = string.sub(cur_word, 6)
 					local key_value = H.get_ekey_value(key)
-					table.insert(lines, "Key value: " .. key_value)
+					-- table.insert(lines, "Key value: " .. key_value)
+					lines[1] = lines[1] .. "\t\tVal: " .. key_value
 				end
 
 				return H.open_cursor_popup(-3, 0, "", lines)

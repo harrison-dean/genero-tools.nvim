@@ -384,7 +384,7 @@ H.define_under_cursor = function(external_funcs)
 	-- skip anything that has no syntax match
 	if next(syntax) ~= nil then
 		if H.syntax_exists(syntax, "fglFunc") then
-			pattern = "^%s*FUNCTION%s+" .. cur_word .. "%s+"
+			pattern = "^s*FUNCTION%s+" .. cur_word .. "%s*"
 			lines_around = 2
 		elseif H.syntax_exists(syntax, {"fglVarM", "fglVarL", "fglVarP"}) then
 			pattern = "%s*DEFINE%s+" .. cur_word .. "%s+"
@@ -400,26 +400,106 @@ H.define_under_cursor = function(external_funcs)
 	if pattern ~= nil then
 		local buf = vim.api.nvim_get_current_buf()
 		local found_line_num = H.search(buf, pattern, cur_row, dir, wrap)
-
+		local lines
 
 		if found_line_num > 0 then
-			local lines = vim.api.nvim_buf_get_lines(buf, found_line_num-lines_around, found_line_num+lines_around+1, false)
-			if #lines > 0 then
-				-- append key value if current word is an EK variable
-				if string.find(cur_word, "_EK_") then
-					local key = string.sub(cur_word, 6)
-					local key_value = H.get_ekey_value(key)
-					-- table.insert(lines, "Key value: " .. key_value)
-					lines[1] = lines[1] .. "\t\tVal: " .. key_value
-				end
+			-- extract and parse full function lines if fglFunc,
+			-- otherwise get matching line and lines around
+			if H.syntax_exists(syntax, "fglFunc") then
+				lines = H.parse_function(cur_word, found_line_num, buf)
+			else
+				lines = vim.api.nvim_buf_get_lines(buf, found_line_num-lines_around, found_line_num+lines_around+1, false)
+				if #lines > 0 then
+					-- append key value if current word is an EK variable
+					if string.find(cur_word, "_EK_") then
+						local key = string.sub(cur_word, 6)
+						local key_value = H.get_ekey_value(key)
+						lines[1] = lines[1] .. "\t\tVal: " .. key_value
+					end
 
-				return H.open_cursor_popup(-3, 0, "", lines)
+				end
 			end
+			return H.open_cursor_popup(-3, 0, "", lines)
 		elseif H.syntax_exists(syntax, "fglFunc") and external_funcs == true then
 			-- use telescope to find function definition in all files
 			require("telescope.builtin").grep_string({search="FUNCTION "..cur_word})
 		end
 	end
+end
+
+H.parse_function = function(func, startline, buf)
+	-- extract function lines
+	local endline = H.search(buf, "^END FUNCTION", startline, "f", false)
+	local func_lines = vim.api.nvim_buf_get_lines(buf, startline, endline+1, false)
+	local func_buf = vim.api.nvim_create_buf(true, true)
+	vim.api.nvim_buf_set_lines(func_buf, 0, #func_lines, false, func_lines)
+
+	local params = {}
+	local returns = {}
+
+
+	for _, line in ipairs(func_lines) do
+		if string.find(line, "DEFINE p_") then
+			local pattern = "%w+%s+([%w_]+)%s+(.*)"
+			local param = {
+				name = nil,
+				type = nil,
+			}
+
+			param.name, param.type = string.match(line, pattern)
+			table.insert(params, param)
+		elseif string.find(line, "RETURN ") then
+			local pattern = "%w+%s+(.*)"
+			local thisreturn = {
+				name = nil,
+				type = nil,
+			}
+			thisreturn.name = string.match(line, pattern)
+			-- try to find return variable type if only one return value at a time
+			if not string.find(thisreturn.name, ",") then
+				local pattern2 = "%s*DEFINE%s+" .. thisreturn.name .. "%s+"
+				local define_line = H.search(func_buf, pattern2, 2, "f", false)
+				if define_line > 0 then
+					thisreturn.type = string.match(func_lines[define_line], "%w+%s+[%w_]+%s+(.*)")
+				end
+
+			else
+				-- TODO: handle type fetch when multiple return values
+			end
+			table.insert(returns, thisreturn)
+		end
+	end
+
+	-- clean up, delete temp buffer
+	vim.api.nvim_buf_delete(func_buf, {force=true})
+
+	-- build output lines
+	local output = {}
+	-- table.insert(output, func)
+	for num, param in ipairs(params) do
+		local line = ""
+		if num == 1 then
+			line = "Params : " .. param.name .. " : " .. param.type
+		else
+			line = "         " .. param.name .. " : " .. param.type
+		end
+		table.insert(output, line)
+	end
+
+	for num, ret in ipairs(returns) do
+		local line = ""
+		if num == 1 then
+			line = "Returns: " .. ret.name
+		else
+			line = "         " .. ret.name
+		end
+		if ret.type ~= nil then
+			line = line .. " : " .. ret.type
+		end
+		table.insert(output, line)
+	end
+
+	return output
 end
 
 H.get_ekey_value = function(key)
@@ -658,9 +738,11 @@ H.search = function(buffer, pattern, start_row, dir, wrap)
 	-- loop to search lines from start to end line num
 	for i = line_start, line_end, line_step do
 		local line = vim.api.nvim_buf_get_lines(buffer, i, i+1, false)[1]
-		if string.match(line, pattern) then
-			found_line = i
-			break
+		if line ~= nil then
+			if string.match(line, pattern) then
+				found_line = i
+				break
+			end
 		end
 	end
 

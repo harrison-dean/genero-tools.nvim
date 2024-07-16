@@ -380,17 +380,19 @@ H.define_under_cursor = function(external_funcs)
 	local dir = "b" -- backwards search by default to find last definition
 	local wrap = true
 	local lines_around = 0
+	local title = ""
 
 	-- skip anything that has no syntax match
 	if next(syntax) ~= nil then
 		if H.syntax_exists(syntax, "fglFunc") then
 			pattern = "^s*FUNCTION%s+" .. cur_word .. "%s*"
 			lines_around = 2
+			title = cur_word .. "()"
 		elseif H.syntax_exists(syntax, {"fglVarM", "fglVarL", "fglVarP"}) then
 			pattern = "%s*DEFINE%s+" .. cur_word .. "%s+"
 		elseif H.syntax_exists(syntax, "fglCurs") then
-			pattern = "&%s*DECLARE%s+" .. cur_word .. "%s+"
-			lines_around = 5
+			pattern = "%s*DECLARE%s+" .. cur_word .. "%s+"
+			lines_around = 2
 		elseif H.syntax_exists(syntax, "fglTable") then
 			return H.open_table_popup(cur_word)
 		end
@@ -407,6 +409,9 @@ H.define_under_cursor = function(external_funcs)
 			-- otherwise get matching line and lines around
 			if H.syntax_exists(syntax, "fglFunc") then
 				lines = H.parse_function(cur_word, found_line_num, buf)
+			-- TODO: elseif parse other syntaxes found
+			elseif H.syntax_exists(syntax, {"fglVarM", "fglVarL", "fglVarP"}) then
+				lines = H.parse_var(cur_word, found_line_num, buf)
 			else
 				lines = vim.api.nvim_buf_get_lines(buf, found_line_num-lines_around, found_line_num+lines_around+1, false)
 				if #lines > 0 then
@@ -414,17 +419,28 @@ H.define_under_cursor = function(external_funcs)
 					if string.find(cur_word, "_EK_") then
 						local key = string.sub(cur_word, 6)
 						local key_value = H.get_ekey_value(key)
-						lines[1] = lines[1] .. "\t\tVal: " .. key_value
+						lines[1] = lines[1] .. "\t\t[Val: " .. key_value .. "]"
 					end
 
 				end
 			end
-			return H.open_cursor_popup(0, 0, "", lines)
+			return H.open_cursor_popup(0, 0, title, lines)
 		elseif H.syntax_exists(syntax, "fglFunc") and external_funcs == true then
 			-- use telescope to find function definition in all files
 			require("telescope.builtin").grep_string({search="FUNCTION "..cur_word})
 		end
 	end
+end
+
+H.parse_var = function(var, startline, buf)
+	local output = {}
+	local define_line = vim.api.nvim_buf_get_lines(buf, startline, startline+1, false)
+	local pattern = "%s*%w+%s+[%w_]+%s+(.*)"
+	local var_type = string.match(define_line[1], pattern)
+
+	table.insert(output, var_type)
+
+	return output
 end
 
 H.parse_function = function(func, startline, buf)
@@ -436,7 +452,6 @@ H.parse_function = function(func, startline, buf)
 
 	local params = {}
 	local returns = {}
-
 
 	for _, line in ipairs(func_lines) do
 		if string.find(line, "DEFINE p_") then

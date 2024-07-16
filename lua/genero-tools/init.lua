@@ -406,10 +406,12 @@ H.define_under_cursor = function(external_funcs)
 
 		if found_line_num > 0 then
 			-- extract and parse full function lines if fglFunc,
+			-- variable type if fglVar*,
 			-- otherwise get matching line and lines around
+			-- TODO: elseif parse other syntaxes found
+			-- TODO: clean up this code
 			if H.syntax_exists(syntax, "fglFunc") then
 				lines = H.parse_function(cur_word, found_line_num, buf)
-			-- TODO: elseif parse other syntaxes found
 			elseif H.syntax_exists(syntax, {"fglVarM", "fglVarL", "fglVarP"}) then
 				lines = H.parse_var(cur_word, found_line_num, buf)
 			else

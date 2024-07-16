@@ -419,7 +419,7 @@ H.define_under_cursor = function(external_funcs)
 
 				end
 			end
-			return H.open_cursor_popup(-3, 0, "", lines)
+			return H.open_cursor_popup(0, 0, "", lines)
 		elseif H.syntax_exists(syntax, "fglFunc") and external_funcs == true then
 			-- use telescope to find function definition in all files
 			require("telescope.builtin").grep_string({search="FUNCTION "..cur_word})
@@ -630,6 +630,7 @@ H.open_cursor_popup = function(row, col, title, text)
 		height = lines,
 		row = row,
 		col = col,
+		anchor = "SW",
 		style = "minimal",
 		border = "rounded",
 		focusable = false,

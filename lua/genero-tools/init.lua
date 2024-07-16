@@ -477,7 +477,7 @@ H.parse_function = function(func, startline, buf)
 				local pattern2 = "%s*DEFINE%s+" .. thisreturn.name .. "%s+"
 				local define_line = H.search(func_buf, pattern2, 2, "f", false)
 				if define_line > 0 then
-					thisreturn.type = string.match(func_lines[define_line], "%w+%s+[%w_]+%s+(.*)")
+					thisreturn.type = string.match(func_lines[define_line+1], "%w+%s+[%w_]+%s+(.*)")
 				end
 
 			else

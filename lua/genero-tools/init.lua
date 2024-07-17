@@ -637,7 +637,7 @@ H.open_cursor_popup = function(row, col, title, text)
 		if line_len > max_len then
 			max_len = line_len
 		end
-		line = line:gsub("\t", " ")
+		-- line = line:gsub("\t", " ")
 		vim.api.nvim_buf_set_lines(buf, line_num-1, -1, true, {line})
 	end
 

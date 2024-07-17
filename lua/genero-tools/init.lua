@@ -387,7 +387,6 @@ H.define_under_cursor = function(external_funcs)
 		if H.syntax_exists(syntax, "fglFunc") then
 			pattern = "^s*FUNCTION%s+" .. cur_word .. "%s*"
 			lines_around = 2
-			title = cur_word .. "()"
 		elseif H.syntax_exists(syntax, {"fglVarM", "fglVarL", "fglVarP"}) then
 			pattern = "%s*DEFINE%s+" .. cur_word .. "%s+"
 		elseif H.syntax_exists(syntax, "fglCurs") then

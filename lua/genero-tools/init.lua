@@ -632,12 +632,13 @@ H.open_cursor_popup = function(row, col, title, text)
 	local max_len = 1
 	local lines = 1
 	for line_num, line in ipairs(text) do
+		line = line:gsub("\t", " ")
+		line = H.strip_comments(line)
 		lines = line_num
 		local line_len = #line
 		if line_len > max_len then
 			max_len = line_len
 		end
-		-- line = line:gsub("\t", " ")
 		vim.api.nvim_buf_set_lines(buf, line_num-1, -1, true, {line})
 	end
 
@@ -664,6 +665,22 @@ H.open_cursor_popup = function(row, col, title, text)
 	vim.api.nvim_win_set_option(win, "winbl", 20)
 
 	return win
+end
+
+H.strip_comments = function(line)
+	local output
+	local pos = string.find(line, "#")
+
+	if pos ~= nil then
+		-- strip all after #
+		output = string.sub(line, 1, pos-1)
+		-- trim trailing whitespace
+		output = string.gsub(output, "%s*$", "")
+	else
+		output = line
+	end
+
+	return output
 end
 
 H.ToInteger = function(number)

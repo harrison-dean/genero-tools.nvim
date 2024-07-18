@@ -458,7 +458,7 @@ H.parse_function = function(func, startline, buf)
 	local returns = {}
 
 	for _, line in ipairs(func_lines) do
-		if string.find(line, "DEFINE p_") then
+		if string.find(line, "DEFINE%s+p_") then
 			local pattern = "%w+%s+([%w_]+)%s+(.*)"
 			local param = {
 				name = nil,

@@ -827,4 +827,60 @@ H.open_table_popup = function(tablename)
 	return popup_win
 end
 
+H.get_func_params = function(lines)
+	local param_str = ""
+	local in_params = false
+
+	-- build string of comma separated params
+	for _, line in ipairs(lines) do
+		-- strip any comments
+		local comment_idx = string.find(line, "#")
+		if comment_idx ~= nil then
+			-- comment found, strip it out
+			line = string.sub(line, 1, comment_idx-1)
+		end
+
+		for char in string.gmatch(line, ".") do
+			if char == "(" then
+				in_params = true
+			end
+
+			if in_params and not (char == "(" or char == ")") then
+				param_str = param_str .. char
+			end
+
+
+			if char == ")" then
+				in_params = false
+			end
+		end
+	end
+
+	-- remove repeated spaces/tabs
+	param_str = string.gsub(param_str, "%s+", " ")
+
+	local params = {}
+
+	for param in string.gmatch(param_str, "([^,]+)") do
+		local p = {name = nil, type = nil}
+
+		-- trim leading whitespace
+		param = string.gsub(param, "^%s+", "")
+		-- trim trailing whitespace
+		param = string.gsub(param, "%s*$", "")
+
+		-- check for inline definitions
+		if string.find(param, " ") ~= nil then
+			p.name, p.type = string.match(param, "([^%s]+)%s+(.*)")
+		else
+			p.name = param
+		end
+
+		table.insert(params, p)
+	end
+
+	return params
+end
+
+
 return GeneroTools

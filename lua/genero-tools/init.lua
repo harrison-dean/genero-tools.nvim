@@ -456,6 +456,8 @@ H.parse_function = function(func, startline, buf)
 	local func_buf = vim.api.nvim_create_buf(true, true)
 	vim.api.nvim_buf_set_lines(func_buf, 0, #func_lines, false, func_lines)
 
+	local params1 = H.get_func_params(func_lines)
+
 	local params = {}
 	local returns = {}
 
@@ -910,7 +912,7 @@ H.parse_curs = function(curs_name, startline, buf)
 		local prepare_line = vim.api.nvim_buf_get_lines(buf, prepare_line_num, prepare_line_num+1, false)[1]
 		local sqlvar = string.match(prepare_line, ".*FROM%s+([%w_]+)")
 		varlinenum = H.search(buf, [[%s*LET%s+l_sql%s*=%s+["'].*$]], prepare_line_num, "b", false)
-		varlineend = varlinenum+1
+		varlineend = varlinenum
 		varletline = vim.api.nvim_buf_get_lines(buf, varlinenum, varlinenum+1, false)[1]
 		varletline = H.strip_comments(varletline)
 		if string.sub(varletline, -1) == "," then

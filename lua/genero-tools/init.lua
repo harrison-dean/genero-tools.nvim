@@ -413,6 +413,8 @@ H.define_under_cursor = function(external_funcs)
 				lines = H.parse_function(cur_word, found_line_num, buf)
 			elseif H.syntax_exists(syntax, {"fglVarM", "fglVarL", "fglVarP"}) then
 				lines = H.parse_var(cur_word, found_line_num, buf)
+			elseif H.syntax_exists(syntax, "fglCurs") then
+				lines = H.parse_curs(cur_word, found_line_num, buf)
 			else
 				lines = vim.api.nvim_buf_get_lines(buf, found_line_num-lines_around, found_line_num+lines_around+1, false)
 				if #lines > 0 then
@@ -882,5 +884,86 @@ H.get_func_params = function(lines)
 	return params
 end
 
+
+H.parse_curs = function(curs_name, startline, buf)
+	local output = {}
+	local cursor = {
+		cursvar = nil,
+		sqlvar = nil,
+		sqlstr = {nil},
+	}
+	cursor.cursvar = curs_name
+
+	local declare_line = vim.api.nvim_buf_get_lines(buf, startline, startline+1, false)[1]
+	local sqlvar = string.match(declare_line, ".*(s_%w+)$")
+	cursor.sqlvar = sqlvar
+
+
+	local pattern = "%s*PREPARE%s+" .. cursor.sqlvar
+	local prepare_line_num = H.search(buf, pattern, startline+1, "b", true)
+
+
+	local varlinenum, varlineend, varletline
+
+	-- prepare statement found
+	if prepare_line_num > 0 then
+		local prepare_line = vim.api.nvim_buf_get_lines(buf, prepare_line_num, prepare_line_num+1, false)[1]
+		local sqlvar = string.match(prepare_line, ".*FROM%s+([%w_]+)")
+		varlinenum = H.search(buf, [[%s*LET%s+l_sql%s*=%s+["'].*$]], prepare_line_num, "b", false)
+		varlineend = varlinenum+1
+		varletline = vim.api.nvim_buf_get_lines(buf, varlinenum, varlinenum+1, false)[1]
+		varletline = H.strip_comments(varletline)
+		if string.sub(varletline, -1) == "," then
+			-- search forward for first line ending with quote with no comma
+			varlineend = H.search(buf, "^[^,]*[^,]$", varlinenum, "f", false)
+		end
+	end
+
+	local sqlstr = H.extract_string(buf, varlinenum, varlineend)
+	print(sqlstr)
+
+	cursor.sqlstr = sqlstr
+
+	output = { "Cursor  : " .. cursor.cursvar ,
+			  "SQL var : " .. cursor.sqlvar ,
+			  "SQL     : " .. cursor.sqlstr[1] }
+
+	for ln, line in ipairs(cursor.sqlstr) do
+		if ln ~= 1 then
+			table.insert(output, "          " .. line)
+		end
+	end
+
+	return output
+end
+
+H.extract_string = function(buf, startline, endline)
+	local lines = vim.api.nvim_buf_get_lines(buf, startline, endline+1, false)
+	local output = {}
+
+	for i, line in ipairs(lines) do
+		-- if first line, strip "LET l_var = "
+		if i == 1 then
+			line = string.match(line, ".*=(.*)")
+		end
+
+		-- strip comments, strip leading spaces
+		local cleanline = string.gsub(line, "^%s+", "")
+		cleanline = H.strip_comments(cleanline)
+
+		-- trim off first and last 2 chars of each string,
+		-- other than the last line, which we just take first and last char
+		if i == #lines then
+			cleanline = string.sub(cleanline, 2, -2)
+		else
+			cleanline = string.sub(cleanline, 2, -3)
+		end
+
+		table.insert(output, cleanline)
+	end
+
+
+	return output
+end
 
 return GeneroTools

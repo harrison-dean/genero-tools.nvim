@@ -486,10 +486,20 @@ H.parse_function = function(func, startline, buf)
 					thisreturn.type = string.match(func_lines[define_line+1], "%w+%s+[%w_]+%s+(.*)")
 				end
 
+				table.insert(returns, thisreturn)
 			else
 				-- TODO: handle type fetch when multiple return values
+				local cleaned
+				cleaned = string.gsub(thisreturn.name, "%s+", "")
+				for w in string.gmatch(cleaned..",", "(.-),") do
+					thisreturn = {name = nil, type = nil}
+					thisreturn.name = w
+					local pattern3 = "%s*DEFINE%s+" .. thisreturn.name .. "%s+"
+					local define_line = H.search(func_buf, pattern3, 2, "f", false)
+					thisreturn.type = H.strip_comments(H.parse_var(thisreturn.name, define_line, func_buf)[1])
+					table.insert(returns, thisreturn)
+				end
 			end
-			table.insert(returns, thisreturn)
 		end
 	end
 
@@ -910,8 +920,8 @@ H.parse_curs = function(curs_name, startline, buf)
 	-- prepare statement found
 	if prepare_line_num > 0 then
 		local prepare_line = vim.api.nvim_buf_get_lines(buf, prepare_line_num, prepare_line_num+1, false)[1]
-		local sqlvar = string.match(prepare_line, ".*FROM%s+([%w_]+)")
-		varlinenum = H.search(buf, [[%s*LET%s+]] .. sqlvar .. [[%s*=%s+["'].*$]], prepare_line_num, "b", false)
+		local sqlvarstr = string.match(prepare_line, ".*FROM%s+([%w_]+)")
+		varlinenum = H.search(buf, [[%s*LET%s+]] .. sqlvarstr .. [[%s*=%s+["'].*$]], prepare_line_num, "b", false)
 		varlineend = varlinenum
 		varletline = vim.api.nvim_buf_get_lines(buf, varlinenum, varlinenum+1, false)[1]
 		varletline = H.strip_comments(varletline)

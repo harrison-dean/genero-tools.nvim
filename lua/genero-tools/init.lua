@@ -911,7 +911,7 @@ H.parse_curs = function(curs_name, startline, buf)
 	if prepare_line_num > 0 then
 		local prepare_line = vim.api.nvim_buf_get_lines(buf, prepare_line_num, prepare_line_num+1, false)[1]
 		local sqlvar = string.match(prepare_line, ".*FROM%s+([%w_]+)")
-		varlinenum = H.search(buf, [[%s*LET%s+l_sql%s*=%s+["'].*$]], prepare_line_num, "b", false)
+		varlinenum = H.search(buf, [[%s*LET%s+]] .. sqlvar .. [[%s*=%s+["'].*$]], prepare_line_num, "b", false)
 		varlineend = varlinenum
 		varletline = vim.api.nvim_buf_get_lines(buf, varlinenum, varlinenum+1, false)[1]
 		varletline = H.strip_comments(varletline)
@@ -922,12 +922,14 @@ H.parse_curs = function(curs_name, startline, buf)
 	end
 
 	local sqlstr = H.extract_string(buf, varlinenum, varlineend)
-	print(sqlstr)
 
-	cursor.sqlstr = sqlstr
+	if sqlstr ~= nil and #sqlstr > 1 then
+		cursor.sqlstr = sqlstr
+	else
+		cursor.sqlstr = { "NOT FOUND" }
+	end
 
 	output = { "Cursor  : " .. cursor.cursvar ,
-			  "SQL var : " .. cursor.sqlvar ,
 			  "SQL     : " .. cursor.sqlstr[1] }
 
 	for ln, line in ipairs(cursor.sqlstr) do

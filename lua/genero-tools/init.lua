@@ -126,10 +126,10 @@ H.apply_autocommands = function(config)
 	au({"CursorMoved", "CursorMovedI"}, "*.4gl,*.per", function() H.close_popups() end, "Automatically close genero-tools popups when cursor moves")
 
 	if config.options.hover_define then
-		au("CursorHold", "*.4gl,*.per", function() H.define_under_cursor(false) end, "Automatically open popup definition of word under cursor when cursor held in normal mode")
+		au("CursorHold", "*.4gl,*.per", function() H.define_under_cursor(true) end, "Automatically open popup definition of word under cursor when cursor held in normal mode")
 	end
 	if config.options.hover_define_insert then
-		au("CursorHoldI", "*.4gl,*.per", function() H.define_under_cursor(false) end, "Automatically open popup definition of word under cursor when cursor held in insert mode")
+		au("CursorHoldI", "*.4gl,*.per", function() H.define_under_cursor(true) end, "Automatically open popup definition of word under cursor when cursor held in insert mode")
 	end
 end
 
@@ -427,14 +427,42 @@ H.define_under_cursor = function(external_funcs)
 
 				end
 			end
+		elseif H.syntax_exists(syntax, "fglFunc") and external_funcs == true then
+			-- use telescope to find function definition in all files
+			-- require("telescope.builtin").grep_string({search="FUNCTION "..cur_word})
+			title, lines = H.parse_external_function(cur_word)
+		end
+		if lines ~= nil then
 			-- only open popup if there are lines to be shown
 			if #lines > 0 then
 				return H.open_cursor_popup(0, 0, title, lines)
 			end
-		elseif H.syntax_exists(syntax, "fglFunc") and external_funcs == true then
-			-- use telescope to find function definition in all files
-			require("telescope.builtin").grep_string({search="FUNCTION "..cur_word})
 		end
+
+	end
+end
+
+
+H.parse_external_function = function(func_name)
+	-- TODO: amend this to search BDS/genero files
+	local rg_cmd = "rg -l '^FUNCTION " .. func_name .. "\\(' *4gl"
+	local found_file = vim.fn.systemlist(rg_cmd)[1]
+	if found_file ~= nil then
+		local file_lines = vim.fn.readfile(found_file)
+		local file_buf = vim.api.nvim_create_buf(false, true)
+		vim.api.nvim_buf_set_lines(file_buf, 0, -1, false, file_lines)
+
+		local startline = 1
+		for	ln, line in ipairs(file_lines) do
+			if string.match(line, "^FUNCTION%s+"..func_name) then
+				startline = ln
+			end
+		end
+
+		local output = H.parse_function(func_name, startline, file_buf)
+		return found_file, output
+	else
+		return nil, nil
 	end
 end
 

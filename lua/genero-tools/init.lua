@@ -445,7 +445,7 @@ end
 
 H.parse_external_function = function(func_name)
 	-- TODO: amend this to search BDS/genero files
-	local rg_cmd = "rg -l '^FUNCTION " .. func_name .. "\\(' *4gl"
+	local rg_cmd = "rg -l '^FUNCTION " .. func_name .. "\\(' -g '*4gl'"
 	local found_file = vim.fn.systemlist(rg_cmd)[1]
 	if found_file ~= nil then
 		local file_lines = vim.fn.readfile(found_file)
@@ -462,7 +462,7 @@ H.parse_external_function = function(func_name)
 		local output = H.parse_function(func_name, startline, file_buf)
 		return found_file, output
 	else
-		return nil, nil
+		return "", nil
 	end
 end
 

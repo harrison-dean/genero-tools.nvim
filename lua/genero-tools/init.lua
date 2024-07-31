@@ -461,7 +461,10 @@ H.parse_external_function = function(func_name)
 	end
 
 	local rg_cmd = "rg -l '^FUNCTION " .. func_name .. "\\s*\\(' -g '*" .. fileext .. "'"
-	local found_file = vim.fn.systemlist(rg_cmd)[1]
+	local found_files = vim.fn.systemlist(rg_cmd)
+	-- TODO: handle when multiple files found?
+	local found_file = found_files[1]
+
 	if found_file ~= nil then
 		local file_lines = vim.fn.readfile(found_file)
 		local file_buf = vim.api.nvim_create_buf(false, true)

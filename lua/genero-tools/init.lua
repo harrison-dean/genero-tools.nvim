@@ -428,13 +428,22 @@ H.define_under_cursor = function(external_funcs)
 				end
 			end
 		elseif H.syntax_exists(syntax, "fglFunc") and external_funcs == true then
+			-- TODO: add config option to open with telescope?
 			-- use telescope to find function definition in all files
 			-- require("telescope.builtin").grep_string({search="FUNCTION "..cur_word})
-			title, lines = H.parse_external_function(cur_word)
+			-- only look external if not on the function define line
+			local cur_line = vim.api.nvim_buf_get_lines(buf, cur_row-1, cur_row, false)[1]
+			if not string.find(cur_line, "FUNCTION") then
+				title, lines = H.parse_external_function(cur_word)
+			end
 		end
 		if lines ~= nil then
 			-- only open popup if there are lines to be shown
 			if #lines > 0 then
+				local filename = vim.api.nvim_buf_get_name(0)
+				if string.find(filename, title) then
+					title = ""
+				end
 				return H.open_cursor_popup(0, 0, title, lines)
 			end
 		end
@@ -445,7 +454,13 @@ end
 
 H.parse_external_function = function(func_name)
 	-- TODO: amend this to search BDS/genero files
-	local rg_cmd = "rg -l '^FUNCTION " .. func_name .. "\\(' -g '*4gl'"
+	local filename = vim.api.nvim_buf_get_name(0)
+	local fileext = ".4gl"
+	if string.find(filename, "_G") then
+		fileext = "_G" .. fileext
+	end
+
+	local rg_cmd = "rg -l '^FUNCTION " .. func_name .. "\\(' -g '*" .. fileext .. "'"
 	local found_file = vim.fn.systemlist(rg_cmd)[1]
 	if found_file ~= nil then
 		local file_lines = vim.fn.readfile(found_file)
@@ -476,9 +491,9 @@ end
 H.parse_function = function(func, startline, buf)
 	-- extract function lines
 	local endline = H.search(buf, "^END FUNCTION", startline, "f", false)
-	local func_lines = vim.api.nvim_buf_get_lines(buf, startline, endline+1, false)
+	local func_lines = vim.api.nvim_buf_get_lines(buf, startline-1, endline+1, false)
 	local func_buf = vim.api.nvim_create_buf(true, true)
-	vim.api.nvim_buf_set_lines(func_buf, 0, #func_lines, false, func_lines)
+	vim.api.nvim_buf_set_lines(func_buf, 0, #func_lines+1, false, func_lines)
 
 	local params1 = H.get_func_params(func_lines)
 
@@ -504,7 +519,7 @@ H.parse_function = function(func, startline, buf)
 			thisreturn.name = string.match(line, pattern)
 			-- try to find return variable type if only one return value at a time
 			if not string.find(thisreturn.name, ",") then
-				local pattern2 = "%s*DEFINE%s+" .. thisreturn.name .. "%s+"
+				local pattern2 = "%s*DEFINE%s+" .. thisreturn.name
 				local define_line = H.search(func_buf, pattern2, 2, "f", false)
 				if define_line > 0 then
 					thisreturn.type = string.match(func_lines[define_line+1], "%w+%s+[%w_]+%s+(.*)")
@@ -518,9 +533,16 @@ H.parse_function = function(func, startline, buf)
 				for w in string.gmatch(cleaned..",", "(.-),") do
 					thisreturn = {name = nil, type = nil}
 					thisreturn.name = w
-					local pattern3 = "%s*DEFINE%s+" .. thisreturn.name .. "%s+"
+					local pattern3 = "%s*DEFINE%s+" .. thisreturn.name
 					local define_line = H.search(func_buf, pattern3, 2, "f", false)
-					thisreturn.type = H.strip_comments(H.parse_var(thisreturn.name, define_line, func_buf)[1])
+
+					-- if match found
+					if define_line > 0 then
+						thisreturn.type = H.strip_comments(H.parse_var(thisreturn.name, define_line, func_buf)[1])
+					else
+						thisreturn.type = "UNK"
+					end
+
 					table.insert(returns, thisreturn)
 				end
 			end

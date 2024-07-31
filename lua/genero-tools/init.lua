@@ -460,14 +460,14 @@ H.parse_external_function = function(func_name)
 		fileext = "_G" .. fileext
 	end
 
-	local rg_cmd = "rg -l '^FUNCTION " .. func_name .. "\\(' -g '*" .. fileext .. "'"
+	local rg_cmd = "rg -l '^FUNCTION " .. func_name .. "\\s*\\(' -g '*" .. fileext .. "'"
 	local found_file = vim.fn.systemlist(rg_cmd)[1]
 	if found_file ~= nil then
 		local file_lines = vim.fn.readfile(found_file)
 		local file_buf = vim.api.nvim_create_buf(false, true)
 		vim.api.nvim_buf_set_lines(file_buf, 0, -1, false, file_lines)
 
-		local startline = H.search(file_buf, "^FUNCTION%s+"..func_name.."%(", 1, "f", false)
+		local startline = H.search(file_buf, "^FUNCTION%s+"..func_name.."%s*%(", 1, "f", false)
 		if startline > 0 then
 			local output = H.parse_function(func_name, startline, file_buf)
 			vim.api.nvim_buf_delete(file_buf, {force=true})

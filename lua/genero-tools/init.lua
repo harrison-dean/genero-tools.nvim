@@ -508,7 +508,7 @@ H.parse_function = function(func, startline, buf)
 	local params = {}
 	local returns = {}
 
-	for _, line in ipairs(func_lines) do
+	for line_num, line in ipairs(func_lines) do
 		line = H.strip_comments(line)
 		if string.find(line, "DEFINE%s+p_") then
 			local pattern = "%w+%s+([%w_]+)%s+(.*)"
@@ -540,6 +540,12 @@ H.parse_function = function(func, startline, buf)
 				-- TODO: handle type fetch when multiple return values
 				local cleaned
 				cleaned = string.gsub(thisreturn.name, "%s+", "")
+				-- if line ends with a comma, extract lines below to get all return vars
+				if string.sub(cleaned, -1) == "," then
+					local retlineend = H.search(func_buf, "^[^,]*[^,]$", line_num, "f", false)
+					cleaned = H.extract_return_multiline(func_buf, line_num-1, retlineend)
+				end
+				-- get all vars between commas on this line
 				for w in string.gmatch(cleaned..",", "(.-),") do
 					thisreturn = {name = nil, type = nil}
 					thisreturn.name = w
@@ -1055,26 +1061,52 @@ H.extract_string = function(buf, startline, endline)
 	local output = {}
 
 	for i, line in ipairs(lines) do
-		-- if first line, strip "LET l_var = "
-		if i == 1 then
-			line = string.match(line, ".*=(.*)")
+		if line ~= nil then
+			-- if first line, strip "LET l_var = "
+			if i == 1 then
+				line = string.match(line, ".*=(.*)")
+			end
+
+			-- strip comments, strip leading spaces
+			local cleanline = string.gsub(line, "^%s+", "")
+			cleanline = H.strip_comments(cleanline)
+
+			-- trim off first and last 2 chars of each string,
+			-- other than the last line, which we just take first and last char
+			if i == #lines then
+				cleanline = string.sub(cleanline, 2, -2)
+			else
+				cleanline = string.sub(cleanline, 2, -3)
+			end
+
+			table.insert(output, cleanline)
 		end
-
-		-- strip comments, strip leading spaces
-		local cleanline = string.gsub(line, "^%s+", "")
-		cleanline = H.strip_comments(cleanline)
-
-		-- trim off first and last 2 chars of each string,
-		-- other than the last line, which we just take first and last char
-		if i == #lines then
-			cleanline = string.sub(cleanline, 2, -2)
-		else
-			cleanline = string.sub(cleanline, 2, -3)
-		end
-
-		table.insert(output, cleanline)
 	end
 
+
+	return output
+end
+
+H.extract_return_multiline = function(buf, startline, endline)
+	local lines = vim.api.nvim_buf_get_lines(buf, startline, endline+1, false)
+	local output = ""
+
+	for i, line in ipairs(lines) do
+		if line ~= nil then
+			if i == 1 then
+				line = string.match(line, "%s*RETURN%s+(.*)")
+			end
+
+			-- strip comments, strip leading spaces
+			local cleanline = string.gsub(line, "^%s+", "")
+			cleanline = H.strip_comments(cleanline)
+
+			-- remove all spaces
+			cleanline = string.gsub(cleanline, "%s+", "")
+
+			output = output .. cleanline
+		end
+	end
 
 	return output
 end

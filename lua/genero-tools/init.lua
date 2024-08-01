@@ -486,6 +486,7 @@ H.parse_var = function(var, startline, buf)
 	local define_line = vim.api.nvim_buf_get_lines(buf, startline, startline+1, false)
 	local pattern = "%s*%w+%s+[%w_]+%s+(.*)"
 	local var_type = string.match(define_line[1], pattern)
+	var_type = var_type:gsub("\t", "")
 
 	table.insert(output, var_type)
 

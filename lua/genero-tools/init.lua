@@ -453,7 +453,6 @@ end
 
 
 H.parse_external_function = function(func_name)
-	-- TODO: amend this to search BDS/genero files
 	local filename = vim.api.nvim_buf_get_name(0)
 	local fileext = ".4gl"
 	if string.find(filename, "_G") then
@@ -692,7 +691,6 @@ end
 
 H.open_cursor_popup = function(row, col, title, text)
 	local buf = vim.api.nvim_create_buf(false, true)
-	-- TODO: delete above buf.. when?
 
 	-- set content of popup, strip tabs
 	local max_len = 1
@@ -813,8 +811,10 @@ H.close_popups = function()
 		if title ~= nil then
 			local title_hl = title[1][2]
 			if title_hl == "genero-tools" then
-				vim.api.nvim_win_close(win, true)
-				-- TODO: find buffer of window and delete it also
+				-- force delete buffer which also closes the popup window
+				local buf = vim.api.nvim_win_get_buf(win)
+				vim.api.nvim_buf_delete(buf, {force=true})
+				-- vim.api.nvim_win_close(win, true)
 			end
 		end
 	end

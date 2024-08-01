@@ -957,8 +957,11 @@ H.parse_curs = function(curs_name, startline, buf)
 
 	local declare_line = vim.api.nvim_buf_get_lines(buf, startline, startline+1, false)[1]
 	local sqlvar = string.match(declare_line, ".*(s_%w+)$")
-	cursor.sqlvar = sqlvar
-
+	if sqlvar ~= nil then
+		cursor.sqlvar = sqlvar
+	else
+		cursor.sqlvar = ""
+	end
 
 	local pattern = "%s*PREPARE%s+" .. cursor.sqlvar
 	local prepare_line_num = H.search(buf, pattern, startline+1, "b", true)

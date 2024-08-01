@@ -415,19 +415,17 @@ H.define_under_cursor = function(external_funcs)
 				lines = H.parse_function(cur_word, found_line_num, buf)
 			elseif H.syntax_exists(syntax, {"fglVarM", "fglVarL", "fglVarP"}) then
 				lines = H.parse_var(cur_word, found_line_num, buf)
+				-- append key value if current word is an EK variable
+				if string.find(cur_word, "_EK_") then
+					local key = string.sub(cur_word, 6)
+					local key_value = H.get_ekey_value(key)
+					lines[1] = lines[1] .. "\t\t[Val: " .. key_value .. "]"
+				end
+
 			elseif H.syntax_exists(syntax, "fglCurs") then
 				lines = H.parse_curs(cur_word, found_line_num, buf)
 			else
 				lines = vim.api.nvim_buf_get_lines(buf, found_line_num-lines_around, found_line_num+lines_around+1, false)
-				if #lines > 0 then
-					-- append key value if current word is an EK variable
-					if string.find(cur_word, "_EK_") then
-						local key = string.sub(cur_word, 6)
-						local key_value = H.get_ekey_value(key)
-						lines[1] = lines[1] .. "\t\t[Val: " .. key_value .. "]"
-					end
-
-				end
 			end
 		elseif H.syntax_exists(syntax, "fglFunc") and external_funcs == true then
 			-- TODO: add config option to open with telescope?
@@ -439,6 +437,7 @@ H.define_under_cursor = function(external_funcs)
 				title, lines = H.parse_external_function(cur_word)
 			end
 		end
+
 		if lines ~= nil then
 			-- only open popup if there are lines to be shown
 			if #lines > 0 then
@@ -490,6 +489,8 @@ H.parse_var = function(var, startline, buf)
 	local var_type = string.match(define_line[1], pattern)
 	var_type = var_type:gsub("\t", "")
 
+	var_type = H.strip_comments(var_type)
+
 	table.insert(output, var_type)
 
 	return output
@@ -508,6 +509,7 @@ H.parse_function = function(func, startline, buf)
 	local returns = {}
 
 	for _, line in ipairs(func_lines) do
+		line = H.strip_comments(line)
 		if string.find(line, "DEFINE%s+p_") then
 			local pattern = "%w+%s+([%w_]+)%s+(.*)"
 			local param = {
@@ -530,6 +532,7 @@ H.parse_function = function(func, startline, buf)
 				local define_line = H.search(func_buf, pattern2, 2, "f", false)
 				if define_line > 0 then
 					thisreturn.type = string.match(func_lines[define_line+1], "%w+%s+[%w_]+%s+(.*)")
+					thisreturn.type = H.strip_comments(thisreturn.type)
 				end
 
 				table.insert(returns, thisreturn)
@@ -701,7 +704,7 @@ H.open_cursor_popup = function(row, col, title, text, title_hl)
 	local lines = 1
 	for line_num, line in ipairs(text) do
 		line = line:gsub("\t", " ")
-		line = H.strip_comments(line)
+		-- line = H.strip_comments(line)
 		lines = line_num
 		local line_len = #line
 		if line_len > max_len then

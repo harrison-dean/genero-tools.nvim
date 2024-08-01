@@ -465,9 +465,10 @@ H.parse_external_function = function(func_name)
 	-- TODO: handle when multiple files found?
 	local found_file = found_files[1]
 
+	local file_buf = vim.api.nvim_create_buf(false, true)
+
 	if found_file ~= nil then
 		local file_lines = vim.fn.readfile(found_file)
-		local file_buf = vim.api.nvim_create_buf(false, true)
 		vim.api.nvim_buf_set_lines(file_buf, 0, -1, false, file_lines)
 
 		local startline = H.search(file_buf, "^FUNCTION%s+"..func_name.."%s*%(", 1, "f", false)
@@ -477,6 +478,7 @@ H.parse_external_function = function(func_name)
 			return found_file, output
 		end
 	end
+	vim.api.nvim_buf_delete(file_buf, {force=true})
 	return "", nil
 end
 
@@ -690,6 +692,7 @@ end
 
 H.open_cursor_popup = function(row, col, title, text)
 	local buf = vim.api.nvim_create_buf(false, true)
+	-- TODO: delete above buf.. when?
 
 	-- set content of popup, strip tabs
 	local max_len = 1
@@ -704,6 +707,7 @@ H.open_cursor_popup = function(row, col, title, text)
 		end
 		vim.api.nvim_buf_set_lines(buf, line_num-1, -1, true, {line})
 	end
+
 
 	-- cursor float options
 	-- TODO: allow cursor_popup_opts in config?
@@ -810,6 +814,7 @@ H.close_popups = function()
 			local title_hl = title[1][2]
 			if title_hl == "genero-tools" then
 				vim.api.nvim_win_close(win, true)
+				-- TODO: find buffer of window and delete it also
 			end
 		end
 	end

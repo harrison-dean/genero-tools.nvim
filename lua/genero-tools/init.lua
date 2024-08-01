@@ -381,12 +381,14 @@ H.define_under_cursor = function(external_funcs)
 	local wrap = true
 	local lines_around = 0
 	local title = ""
+	local title_hl = "genero-tools"
 
 	-- skip anything that has no syntax match
 	if next(syntax) ~= nil then
 		if H.syntax_exists(syntax, "fglFunc") then
 			pattern = "^s*FUNCTION%s+" .. cur_word .. "%s*"
 			lines_around = 2
+			title_hl = "genero-tools-func"
 		elseif H.syntax_exists(syntax, {"fglVarM", "fglVarL", "fglVarP"}) then
 			pattern = "%s*DEFINE%s+" .. cur_word .. "%s+"
 		elseif H.syntax_exists(syntax, "fglCurs") then
@@ -444,7 +446,7 @@ H.define_under_cursor = function(external_funcs)
 				if string.find(filename, title) then
 					title = ""
 				end
-				return H.open_cursor_popup(0, 0, title, lines)
+				return H.open_cursor_popup(0, 0, title, lines, title_hl)
 			end
 		end
 
@@ -690,8 +692,9 @@ H.parse_sqlout = function(sql)
 	return parsed
 end
 
-H.open_cursor_popup = function(row, col, title, text)
+H.open_cursor_popup = function(row, col, title, text, title_hl)
 	local buf = vim.api.nvim_create_buf(false, true)
+	local win
 
 	-- set content of popup, strip tabs
 	local max_len = 1
@@ -721,16 +724,40 @@ H.open_cursor_popup = function(row, col, title, text)
 		border = "rounded",
 		focusable = false,
 		-- title hl group so we can identify our windows later
-		title = { { title, "genero-tools" } },
+		title = { { title, title_hl } },
 	}
 
-	-- create popup
-	local win = vim.api.nvim_open_win(buf, false, opts)
+	-- create popup if this type not already open
+	if not (H.window_type_open(title_hl)) then
+		win = vim.api.nvim_open_win(buf, false, opts)
 
-	-- make transparent
-	vim.api.nvim_win_set_option(win, "winbl", 20)
+		-- make transparent
+		vim.api.nvim_win_set_option(win, "winbl", 20)
+	end
+
 
 	return win
+end
+
+H.window_type_open = function(type)
+	-- check every window for title hl group (type)
+	local all_wins = vim.api.nvim_list_wins()
+
+	-- do not proceed if only one window open 
+	if #all_wins == 1 then
+		return false
+	end
+	for _, win in ipairs(all_wins) do
+		local title = vim.api.nvim_win_get_config(win).title
+		if title ~= nil then
+			local title_hl = title[1][2]
+			if title_hl == type then
+				return true
+			end
+		end
+	end
+
+	return false
 end
 
 H.strip_comments = function(line)
@@ -808,14 +835,25 @@ H.close_popups = function()
 		return
 	end
 	for _, win in ipairs(all_wins) do
+		local buf = vim.api.nvim_win_get_buf(win)
 		local title = vim.api.nvim_win_get_config(win).title
 		if title ~= nil then
 			local title_hl = title[1][2]
 			if title_hl == "genero-tools" then
 				-- force delete buffer which also closes the popup window
-				local buf = vim.api.nvim_win_get_buf(win)
 				vim.api.nvim_buf_delete(buf, {force=true})
 				-- vim.api.nvim_win_close(win, true)
+			elseif title_hl == "genero-tools-func" then
+				--TODO - only close function popups when done with function call
+				vim.api.nvim_buf_delete(buf, {force=true})
+
+				-- local cur_word = vim.fn.expand("<cword>")
+				-- local cur_line = vim.fn.getline(".")
+				-- local cur_col = vim.fn.col(".")
+				-- local cur_char = string.sub(cur_line, cur_col, cur_col)
+				-- if cur_char == ")" then
+				-- 	vim.api.nvim_buf_delete(buf, {force=true})
+				-- end
 			end
 		end
 	end
@@ -891,7 +929,7 @@ H.open_table_popup = function(tablename)
 	os.remove(filename)
 
 
-	local popup_win = H.open_cursor_popup(0,0, tablename, H.parse_sqlout(sqlout))
+	local popup_win = H.open_cursor_popup(0,0, tablename, H.parse_sqlout(sqlout), "genero-tools")
 
 	return popup_win
 end

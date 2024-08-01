@@ -3,6 +3,17 @@
 ## description
 A Neovim plugin to provide some LSP-like functionalities for the Genero language by FourJs.
 
+## examples
+variable/function/cursor popups
+![genero-tools-popups](https://github.com/user-attachments/assets/d0f1f468-1778-423e-aa60-62ae34f9f52f)
+
+diagnostics parsed from compiler output
+![genero-tools-diagnostics](https://github.com/user-attachments/assets/c74df710-cf30-48ea-8214-b8560c826b55)
+
+snippets
+![genero-tools-snippets](https://github.com/user-attachments/assets/7c7670c6-d0d6-4dd8-afa9-6cbda4768b9b)
+
+
 ## config
 There are some (TODO more) basic config settings. Below are defaults
 ```

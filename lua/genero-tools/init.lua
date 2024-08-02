@@ -511,8 +511,8 @@ H.parse_function = function(func, startline, buf)
 		if string.find(line, "DEFINE%s+p_") then
 			local pattern = "%w+%s+([%w_]+)%s+(.*)"
 			local param = {
-				name = nil,
-				type = nil,
+				name = "",
+				type = "",
 			}
 
 			param.name, param.type = string.match(line, pattern)
@@ -634,14 +634,18 @@ H.parse_inline_params = function(func_buf)
 			for def in string.gmatch(line..",", "(.-),") do
 				local param = {name="", type=""}
 				param.name, param.type = string.match(def, "(.*)%s+(.*)")
-				table.insert(params, param)
+				if param.name ~= nil then
+					table.insert(params, param)
+				end
 			end
 
 		else
 			local param = {name="", type=""}
 			-- only one var+type on this line
 			param.name, param.type = string.match(line, "^([%w_]+)%s+(.*)$")
-			table.insert(params, param)
+			if param.name ~= nil then
+				table.insert(params, param)
+			end
 		end
 
 	end

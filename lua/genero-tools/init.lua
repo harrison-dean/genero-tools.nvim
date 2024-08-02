@@ -499,11 +499,9 @@ end
 H.parse_function = function(func, startline, buf)
 	-- extract function lines
 	local endline = H.search(buf, "^END FUNCTION", startline, "f", false)
-	local func_lines = vim.api.nvim_buf_get_lines(buf, startline-1, endline+1, false)
+	local func_lines = vim.api.nvim_buf_get_lines(buf, startline, endline+1, false)
 	local func_buf = vim.api.nvim_create_buf(true, true)
 	vim.api.nvim_buf_set_lines(func_buf, 0, #func_lines+1, false, func_lines)
-
-	local params1 = H.get_func_params(func_lines)
 
 	local params = {}
 	local returns = {}
@@ -565,6 +563,11 @@ H.parse_function = function(func, startline, buf)
 		end
 	end
 
+	-- if no params found, look for inline defined params
+	if #params == 0 then
+		params = H.parse_inline_params(func_buf)
+	end
+
 	-- clean up, delete temp buffer
 	vim.api.nvim_buf_delete(func_buf, {force=true})
 
@@ -595,6 +598,55 @@ H.parse_function = function(func, startline, buf)
 	end
 
 	return output
+end
+
+H.parse_inline_params = function(func_buf)
+	local params = {}
+	-- first line below function definition that does not end in a comma
+	local endline = 1
+	local define_line = vim.api.nvim_buf_get_lines(func_buf, 0, endline, false)[1]
+
+	-- if the func define line ends in a comma, then
+	-- find first line below function define line that does not end in a comma
+	if string.sub(define_line, -1) == "," then
+		endline = H.search(func_buf, "^[^,]*[^,]$", 0, "f", false)+1
+	end
+
+
+	local return_lines = vim.api.nvim_buf_get_lines(func_buf, 0, endline, false)
+
+	for ln, line in ipairs(return_lines) do
+		line = H.strip_comments(line)
+		line = string.gsub(line, "^%s*", "")
+
+		if ln == 1 then
+			line = string.match(line, "%s*FUNCTION%s+[%w_]+%s*%((.*)")
+			line = string.sub(line, 1, -2)
+		else
+			line = string.sub(line, 1, -2)
+		end
+
+		-- TODO: fix this, extract from between commas
+		if string.find(line, ",") then
+			-- extract var+type between commas on this line
+			-- remove spaces after commas
+			line = string.gsub(line, ", ", ",")
+			for def in string.gmatch(line..",", "(.-),") do
+				local param = {name="", type=""}
+				param.name, param.type = string.match(def, "(.*)%s+(.*)")
+				table.insert(params, param)
+			end
+
+		else
+			local param = {name="", type=""}
+			-- only one var+type on this line
+			param.name, param.type = string.match(line, "^([%w_]+)%s+(.*)$")
+			table.insert(params, param)
+		end
+
+	end
+
+	return params
 end
 
 H.get_ekey_value = function(key)
@@ -942,62 +994,6 @@ H.open_table_popup = function(tablename)
 
 	return popup_win
 end
-
-H.get_func_params = function(lines)
-	local param_str = ""
-	local in_params = false
-
-	-- build string of comma separated params
-	for _, line in ipairs(lines) do
-		-- strip any comments
-		local comment_idx = string.find(line, "#")
-		if comment_idx ~= nil then
-			-- comment found, strip it out
-			line = string.sub(line, 1, comment_idx-1)
-		end
-
-		for char in string.gmatch(line, ".") do
-			if char == "(" then
-				in_params = true
-			end
-
-			if in_params and not (char == "(" or char == ")") then
-				param_str = param_str .. char
-			end
-
-
-			if char == ")" then
-				in_params = false
-			end
-		end
-	end
-
-	-- remove repeated spaces/tabs
-	param_str = string.gsub(param_str, "%s+", " ")
-
-	local params = {}
-
-	for param in string.gmatch(param_str, "([^,]+)") do
-		local p = {name = nil, type = nil}
-
-		-- trim leading whitespace
-		param = string.gsub(param, "^%s+", "")
-		-- trim trailing whitespace
-		param = string.gsub(param, "%s*$", "")
-
-		-- check for inline definitions
-		if string.find(param, " ") ~= nil then
-			p.name, p.type = string.match(param, "([^%s]+)%s+(.*)")
-		else
-			p.name = param
-		end
-
-		table.insert(params, p)
-	end
-
-	return params
-end
-
 
 H.parse_curs = function(curs_name, startline, buf)
 	local output = {}

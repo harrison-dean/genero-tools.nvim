@@ -395,7 +395,7 @@ H.define_under_cursor = function(external_funcs)
 			pattern = "%s*DECLARE%s+" .. cur_word .. "%s+"
 			lines_around = 2
 		elseif H.syntax_exists(syntax, "fglTable") then
-			return H.open_table_popup(cur_word)
+			return H.open_table_popup(cur_word, false)
 		end
 	end
 
@@ -419,8 +419,20 @@ H.define_under_cursor = function(external_funcs)
 				if string.find(cur_word, "_EK_") then
 					local key = string.sub(cur_word, 6)
 					local key_value = H.get_ekey_value(key)
-					lines[1] = lines[1] .. "\t\t[Val: " .. key_value .. "]"
+					if key_value ~= nil then
+						lines[1] = lines[1] .. "\t\t[Val: " .. key_value .. "]"
+					end
 				end
+
+				-- if variable is RECORD LIKE, popup extra window
+				if string.find(lines[1], "RECORD LIKE") then
+					-- extract database table from RECORD LIKE statement
+					local table = string.match(lines[1], "%w+%s+%w+%s+([%w_]+).*")
+					local extra_popup = H.open_table_popup(table, true)
+				end
+
+
+
 
 			elseif H.syntax_exists(syntax, "fglCurs") then
 				lines = H.parse_curs(cur_word, found_line_num, buf)
@@ -435,6 +447,8 @@ H.define_under_cursor = function(external_funcs)
 			local cur_line = vim.api.nvim_buf_get_lines(buf, cur_row-1, cur_row, false)[1]
 			if not string.find(cur_line, "FUNCTION") then
 				title, lines = H.parse_external_function(cur_word)
+				-- TODO: bind keys to open external function source file in split
+				-- vim.cmd("sp "..title)
 			end
 		end
 
@@ -975,7 +989,7 @@ H.search = function(buffer, pattern, start_row, dir, wrap)
 	end
 end
 
-H.open_table_popup = function(tablename)
+H.open_table_popup = function(tablename, like)
 	local filename = "t_definetable.sql"
 	local sqlfile = io.open(filename, "w")
 	local sql = "SELECT colname, coltype, collength FROM syscolumns WHERE tabid = (SELECT tabid FROM systables WHERE tabname = '" .. tablename .. "');"
@@ -993,6 +1007,10 @@ H.open_table_popup = function(tablename)
 	-- remove temporary sql file
 	os.remove(filename)
 
+	-- if calling from a "LIKE RECORD" statement, prefix to table name title
+	if like then
+		tablename = "RECORD LIKE " .. tablename .. ".*"
+	end
 
 	local popup_win = H.open_cursor_popup(0,0, tablename, H.parse_sqlout(sqlout), "genero-tools")
 

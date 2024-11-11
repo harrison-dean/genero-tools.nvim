@@ -447,8 +447,12 @@ H.define_under_cursor = function(external_funcs)
 			local cur_line = vim.api.nvim_buf_get_lines(buf, cur_row-1, cur_row, false)[1]
 			if not string.find(cur_line, "FUNCTION") then
 				title, lines = H.parse_external_function(cur_word)
-				-- TODO: bind keys to open external function source file in split
-				-- vim.cmd("sp "..title)
+				-- bind keys to open external function source file in split
+				-- local map = H.keymap_set
+				-- map("n", "<C-X>", function() vim.cmd("split "..title) end,
+					-- { desc = "Open file where function is defined as split" })
+				vim.keymap.set("n", "<C-X>", function() vim.cmd("split "..title) end, {desc="Open file where function is defined as split"})
+
 			end
 		end
 

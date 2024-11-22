@@ -214,6 +214,10 @@ H.compile_and_capture = function(popup)
 	-- parse and set diagnostics from compile output
 	local diagnostics = H.parse_compile_output(compile_output)
 
+	--#TMPHD - also find and mark unused functions as warnings
+	-- diagnostics = H.find_unused_funcs(diagnostics)
+	
+
 	GeneroTools.diagnostics = diagnostics
 
 	vim.diagnostic.set(GeneroTools.ns, vim.api.nvim_get_current_buf(), diagnostics)
@@ -222,6 +226,20 @@ H.compile_and_capture = function(popup)
 	if popup then
 		H.open_center_popup(compile_output)
 	end
+end
+
+H.find_unused_funcs = function(diagnostics)
+	local lines = vim.api.nvim_buf_get_lines(vim.api.nvim_get_current_buf(), 0, -1, false)
+
+	for _,line in ipairs(lines) do
+		if string.match(line, "^FUNCTION") then
+			local func = string.match(line, "%w+%s+([%w_]+)%s*.*$")
+			--#TODO 
+			-- print(func)
+			-- see if this function name has been referenced 
+		end
+	end
+
 end
 
 H.open_center_popup = function(lines)
@@ -413,6 +431,10 @@ H.define_under_cursor = function(external_funcs)
 			-- TODO: clean up this code
 			if H.syntax_exists(syntax, "fglFunc") then
 				lines = H.parse_function(cur_word, found_line_num, buf)
+				-- also bind ctrl-x to go to function definition in this file
+				--TODO: make this keymap configurable
+				local func_define_line = H.search(buf, pattern, 0, "f", true)
+				vim.keymap.set("n", "<C-X>", function() vim.api.nvim_win_set_cursor(0, {func_define_line+1,0}) end, {desc="Go to line number where function is defined"})
 			elseif H.syntax_exists(syntax, {"fglVarM", "fglVarL", "fglVarP"}) then
 				lines = H.parse_var(cur_word, found_line_num, buf)
 				-- append key value if current word is an EK variable
@@ -451,6 +473,7 @@ H.define_under_cursor = function(external_funcs)
 				-- local map = H.keymap_set
 				-- map("n", "<C-X>", function() vim.cmd("split "..title) end,
 					-- { desc = "Open file where function is defined as split" })
+				-- TODO: add config option to control this keybind
 				vim.keymap.set("n", "<C-X>", function() vim.cmd("split "..title) end, {desc="Open file where function is defined as split"})
 
 			end

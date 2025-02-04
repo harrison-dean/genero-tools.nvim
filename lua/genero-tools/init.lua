@@ -222,11 +222,13 @@ H.compile_and_capture = function(popup)
 
 	--#TMPHD - also find and mark unused functions as warnings
 	-- diagnostics = H.find_unused_funcs(diagnostics)
-	
+
 
 	GeneroTools.diagnostics = diagnostics
 
-	vim.diagnostic.set(GeneroTools.ns, vim.api.nvim_get_current_buf(), diagnostics)
+	if GeneroTools.config.options.diagnostics then
+		vim.diagnostic.set(GeneroTools.ns, vim.api.nvim_get_current_buf(), diagnostics)
+	end
 
 	-- display compile output in floating window
 	if popup then

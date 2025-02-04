@@ -30,6 +30,7 @@ GeneroTools.config = {
 		heart = false,
 		hover_define = true,
 		hover_define_insert = false,
+		diagnostics = true,
 	},
 	mappings = {
 		basic = true,
@@ -51,6 +52,7 @@ H.setup_config = function(config)
 		['options.heart'] = { config.options.heart, 'boolean' },
 		['options.hover_define'] = { config.options.hover_define, 'boolean' },
 		['options.hover_define_insert'] = { config.options.hover_define_insert, 'boolean' },
+		['options.diagnostics'] = { config.options.diagnostics, 'boolean' },
 		['mappings.basic'] = { config.mappings.basic, 'boolean' },
 	})
 
@@ -102,8 +104,10 @@ H.apply_mappings = function(config)
 			{ desc = "Insert CALL elt_debug([input str])"})
 		map("n", "<F4>", function() H.write_debug("var") end,
 			{ desc = "Insert lines to CALL elt_debug variable value" })
-		map("n", "<F5>", function() H.compile_and_capture(true) end,
-			{ desc = "Compile + show and capture diagnostics" })
+		if config.options.diagnostics then
+			map("n", "<F5>", function() H.compile_and_capture(true) end,
+				{ desc = "Compile + show and capture diagnostics" })
+		end
 
 		map("n", "<Space>d", function() H.define_under_cursor(true) end,
 			{ desc = "Find where word under cursor is defined" })
@@ -120,7 +124,9 @@ H.apply_autocommands = function(config)
 	end
 
 	-- compile and capture diagnostics after buffer opened
-	au({"BufReadPost", "BufWritePost"}, "*.4gl,*.per", function() H.compile_and_capture(false) end, "Generate diagnostics from compile results when buffer read/opened")
+	if config.options.diagnostics then
+		au({"BufReadPost", "BufWritePost"}, "*.4gl,*.per", function() H.compile_and_capture(false) end, "Generate diagnostics from compile results when buffer read/opened")
+	end
 
 	-- autocmd to close popups
 	au({"CursorMoved", "CursorMovedI"}, "*.4gl,*.per", function() H.close_popups() end, "Automatically close genero-tools popups when cursor moves")

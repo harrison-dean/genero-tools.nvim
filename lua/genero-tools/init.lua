@@ -1213,37 +1213,39 @@ H.parse_diff = function(diff)
       new_offset = 0
       last_deleted = nil
     elseif line:match("^@@") then
-      -- Capture line numbers from the '@@' line
+      -- Capture line numbers and lengths
       local _, _, old_start, old_len, new_start, new_len = line:find("@@ %-(%d+),?(%d*) %+(%d+),?(%d*) @@")
       old_lnum = tonumber(old_start) or 0
       current_lnum = tonumber(new_start) or 0
+      old_len = tonumber(old_len) or 1
+      new_len = tonumber(new_len) or 1
       old_offset = 0
       new_offset = 0
       last_deleted = nil
     elseif line:match("^%+") and current_file and current_lnum then
       if last_deleted then
-        -- If the previous line was deleted, treat it as a modification
-        table.insert(changes[current_file], { lnum = last_deleted.lnum + old_offset, type = "SvnSignChange" })
-        last_deleted = nil -- Reset after modification
+        -- Treat consecutive -/+ as a modified line
+        table.insert(changes[current_file], { lnum = last_deleted.lnum, type = "SvnSignChange" })
+        last_deleted = nil
       else
-        -- Added line
+        -- Added line, use current_lnum
         table.insert(changes[current_file], { lnum = current_lnum + new_offset, type = "SvnSignAdd" })
       end
       new_offset = new_offset + 1
       current_lnum = current_lnum + 1
     elseif line:match("^%-") and current_file and old_lnum then
-      -- Deleted line
+      -- Deleted line, use old_lnum
       last_deleted = { lnum = old_lnum + old_offset, type = "SvnSignDelete" }
       table.insert(changes[current_file], last_deleted)
       old_offset = old_offset + 1
       old_lnum = old_lnum + 1
     elseif not line:match("^%+") and not line:match("^%-") and #line > 0 then
-      -- Unchanged line, increment both line numbers and reset last_deleted
+      -- Unchanged line, increment both old and current line numbers
       if current_lnum and old_lnum then
         current_lnum = current_lnum + 1
         old_lnum = old_lnum + 1
       end
-      last_deleted = nil -- Reset if encountering an unchanged line
+      last_deleted = nil
     end
   end
 

@@ -1179,9 +1179,9 @@ end
 
 
 H.signs = {
-  added = { name = "SvnSignAdd", text = "+", texthl = "DiffAdd" },
-  modified = { name = "SvnSignChange", text = "~", texthl = "DiffChange" },
-  deleted = { name = "SvnSignDelete", text = "-", texthl = "DiffDelete" },
+  added = { name = "SvnSignAdd", text = "▎", texthl = "MiniDiffSignAdd" },
+  modified = { name = "SvnSignChange", text = "▎", texthl = "MiniDiffSignChange" },
+  deleted = { name = "SvnSignDelete", text = "", texthl = "MiniDiffSignDelete" },
 }
 
 H.define_signs = function()
@@ -1226,9 +1226,6 @@ H.parse_diff = function(diff)
     end
   end
 
-  -- Debugging output to check parsed changes
-  -- vim.notify("Parsed changes: " .. vim.inspect(changes), vim.log.levels.DEBUG)
-
   return changes
 end
 
@@ -1239,8 +1236,8 @@ H.update_signs = function(bufnr)
 
   if diff_output == "" then
 	vim.fn.sign_unplace("svn_signs", { buffer = bufnr })
-    -- vim.notify("No diff output from SVN", vim.log.levels.WARN)
     return
+
   end
 
   local changes = H.parse_diff(diff_output)
@@ -1250,7 +1247,6 @@ H.update_signs = function(bufnr)
     vim.fn.sign_place(0, "svn_signs", "SvnSignChange", bufnr, { lnum = lnum, priority = 100 })
   end
 
-  -- vim.notify("Signs placed for " .. file, vim.log.levels.INFO)  -- Debugging output
 end
 
 return GeneroTools

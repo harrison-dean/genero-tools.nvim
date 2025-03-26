@@ -1199,6 +1199,8 @@ H.parse_diff = function(diff)
   local current_file = nil
   local current_lnum = nil
   local old_lnum = nil
+  local old_offset = 0
+  local new_offset = 0
   local last_deleted = nil
 
   for line in diff:gmatch("(.-)\n") do
@@ -1207,30 +1209,36 @@ H.parse_diff = function(diff)
     if mod_line then
       current_file = mod_line
       changes[current_file] = {}
+      old_offset = 0
+      new_offset = 0
       last_deleted = nil
     elseif line:match("^@@") then
       -- Capture line numbers from the '@@' line
       local _, _, old_start, old_len, new_start, new_len = line:find("@@ %-(%d+),?(%d*) %+(%d+),?(%d*) @@")
       old_lnum = tonumber(old_start) or 0
       current_lnum = tonumber(new_start) or 0
+      old_offset = 0
+      new_offset = 0
       last_deleted = nil
     elseif line:match("^%+") and current_file and current_lnum then
       if last_deleted then
-        -- If a deleted line was followed by an added line, it's a modification
-        table.insert(changes[current_file], { lnum = last_deleted.lnum, type = "SvnSignChange" })
+        -- If the previous line was deleted, treat it as a modification
+        table.insert(changes[current_file], { lnum = last_deleted.lnum + old_offset, type = "modified" })
         last_deleted = nil -- Reset after modification
       else
         -- Added line
-        table.insert(changes[current_file], { lnum = current_lnum, type = "SvnSignAdd" })
+        table.insert(changes[current_file], { lnum = current_lnum + new_offset, type = "added" })
       end
+      new_offset = new_offset + 1
       current_lnum = current_lnum + 1
     elseif line:match("^%-") and current_file and old_lnum then
       -- Deleted line
-      last_deleted = { lnum = old_lnum, type = "SvnSignDelete" }
+      last_deleted = { lnum = old_lnum + old_offset, type = "deleted" }
       table.insert(changes[current_file], last_deleted)
+      old_offset = old_offset + 1
       old_lnum = old_lnum + 1
     elseif not line:match("^%+") and not line:match("^%-") and #line > 0 then
-      -- Unchanged line, increment both line numbers
+      -- Unchanged line, increment both line numbers and reset last_deleted
       if current_lnum and old_lnum then
         current_lnum = current_lnum + 1
         old_lnum = old_lnum + 1
@@ -1256,9 +1264,25 @@ H.update_signs = function(bufnr)
   local changes = H.parse_diff(diff_output)
 
   vim.fn.sign_unplace("svn_signs", { buffer = bufnr })
-  for _, change in ipairs(changes[file] or {}) do
-    vim.fn.sign_place(0, "svn_signs", change.type, bufnr, { lnum = change.lnum, priority = 1 })
-  end
+  -- for _, change in ipairs(changes[file] or {}) do
+  --   vim.fn.sign_place(0, "svn_signs", change.type, bufnr, { lnum = change.lnum, priority = 1 })
+  -- end
+	local changes = H.parse_diff(diff)
+	local ns_id = vim.api.nvim_create_namespace("svn_signs")
+
+	for file, file_changes in pairs(changes) do
+	for _, change in ipairs(file_changes) do
+		local sign_type = change.type == "added" and "GitSignsAdd"
+		or change.type == "modified" and "GitSignsChange"
+		or "GitSignsDelete"
+
+		-- Place sign with correct line number (adjust for Lua 1-based index)
+		vim.api.nvim_buf_set_extmark(0, ns_id, change.lnum - 1, 0, {
+		sign_text = sign_type,
+		sign_hl_group = sign_type
+		})
+	end
+	end
 
 end
 

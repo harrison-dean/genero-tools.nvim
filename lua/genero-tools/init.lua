@@ -1275,10 +1275,13 @@ H.update_signs = function(bufnr)
 		local sign_type = change.type == "added" and "GitSignsAdd"
 		or change.type == "modified" and "GitSignsChange"
 		or "GitSignsDelete"
-
+		-- Define sign text for each type
+		local sign_text = change.type == "added" and "+"
+		or change.type == "modified" and "~"
+		or "-"
 		-- Place sign with correct line number (adjust for Lua 1-based index)
 		vim.api.nvim_buf_set_extmark(0, ns_id, change.lnum - 1, 0, {
-		sign_text = sign_type,
+		sign_text = sign_text,
 		sign_hl_group = sign_type
 		})
 	end

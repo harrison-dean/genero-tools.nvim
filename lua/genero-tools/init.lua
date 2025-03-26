@@ -1197,29 +1197,36 @@ end
 H.parse_diff = function(diff)
   local changes = {}
   local current_file = nil
-  local current_lnum = nil
-  local current_change = nil
+  local current_lnum = nil  -- Ensure current_lnum starts as nil
 
+  -- Check if the diff output is empty
+  if diff == "" then
+    vim.notify("No diff output from SVN", vim.log.levels.WARN)
+    return changes
+  end
+
+  -- Parse each line of the diff
   for line in diff:gmatch("(.-)\n") do
     -- Capture file name after 'Index:'
     local mod_line = line:match("^Index: (.+)")
     if mod_line then
       current_file = mod_line
-      changes[current_file] = {}
+      changes[current_file] = {}  -- Initialize for each file
     elseif line:match("^@@") then
       -- Capture line numbers from the '@@' line
       local _, _, old_start, new_start = line:find("@@ %-(%d+),%d+ %+(%d+),%d+ @@")
       if new_start then
-        current_lnum = tonumber(new_start) -- start with the new line number
+        current_lnum = tonumber(new_start)  -- Initialize current_lnum based on the new line number
       end
-    elseif line:match("^%+") and current_file and current_lnum then
-      -- Add modified/added lines to the changes list
-      table.insert(changes[current_file], current_lnum)
-      current_lnum = current_lnum + 1
-    elseif line:match("^%-") then
-      -- Deletions (we don’t need to handle this for signs)
-    elseif not line:match("^%+") and not line:match("^%-") and #line > 0 then
-      -- Increment line number for unchanged lines
+    elseif line:match("^%+") or line:match("^%-") then
+      -- Detect modified lines (both added and deleted lines will get a `~` sign)
+      if current_lnum then
+        table.insert(changes[current_file], current_lnum)
+        -- Do NOT increment here, only process once per modified line
+      end
+      current_lnum = current_lnum + 1  -- Increment the line number after processing a line
+    elseif not line:match("^%+") and not line:match("^%-") then
+      -- Increment line number for unchanged lines, but only if `current_lnum` is not nil
       if current_lnum then
         current_lnum = current_lnum + 1
       end
@@ -1227,7 +1234,6 @@ H.parse_diff = function(diff)
   end
 
   return changes
-end
 
 H.update_signs = function(bufnr)
   bufnr = bufnr or vim.api.nvim_get_current_buf()

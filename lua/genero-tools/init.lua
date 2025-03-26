@@ -14,6 +14,7 @@ GeneroTools.ns = vim.api.nvim_create_namespace("genero-tools")
 ---
 ---@usage `require('genero-tools').setup({})` (replace `{}` with your `config` table)
 GeneroTools.setup = function(config)
+	H.define_signs()
 	-- export module
 	_G.GeneroTools = GeneroTools
 
@@ -30,7 +31,11 @@ GeneroTools.config = {
 		heart = false,
 		hover_define = true,
 		hover_define_insert = false,
-		diagnostics = true,
+		diagnostics = true,--
+		hover_vars = true,
+		hover_funcs = true,
+		svn_signs = true,
+		
 	},
 	mappings = {
 		basic = true,
@@ -53,6 +58,9 @@ H.setup_config = function(config)
 		['options.hover_define'] = { config.options.hover_define, 'boolean' },
 		['options.hover_define_insert'] = { config.options.hover_define_insert, 'boolean' },
 		['options.diagnostics'] = { config.options.diagnostics, 'boolean' },
+		['options.hover_vars'] = { config.options.hover_vars, 'boolean' },
+		['options.hover_funcs'] = { config.options.hover_funcs, 'boolean' },
+		['options.svn_signs'] = { config.options.svn_signs, 'boolean' },
 		['mappings.basic'] = { config.mappings.basic, 'boolean' },
 	})
 
@@ -137,6 +145,11 @@ H.apply_autocommands = function(config)
 	if config.options.hover_define_insert then
 		au("CursorHoldI", "*.4gl,*.per", function() H.define_under_cursor(true) end, "Automatically open popup definition of word under cursor when cursor held in insert mode")
 	end
+	
+	if config.options.svn_signs then
+		au({ "BufWritePost", "BufEnter" }, "*.4gl,*.per", function() H.update_signs() end, "Place signs in status column based on svn diff output")
+	end
+
 end
 
 -- Utilities ------------------------------------------------------------------
@@ -1162,6 +1175,52 @@ H.extract_return_multiline = function(buf, startline, endline)
 	end
 
 	return output
+end
+
+
+H.signs = {
+  added = { name = "SvnSignAdd", text = "+", texthl = "DiffAdd" },
+  modified = { name = "SvnSignChange", text = "~", texthl = "DiffChange" },
+  deleted = { name = "SvnSignDelete", text = "-", texthl = "DiffDelete" },
+}
+
+H.define_signs = function()
+  for _, sign in pairs(H.signs) do
+    vim.fn.sign_define(sign.name, {
+      text = sign.text,
+      texthl = sign.texthl,
+      numhl = sign.texthl,
+    })
+  end
+end
+
+H.parse_diff = function(diff)
+  local changes = {}
+  for line in diff:gmatch("(.-)") do
+    local mod_line = line:match("^Index: (.+)")
+    if mod_line then
+      changes[mod_line] = {}
+    elseif line:match("^@@") then
+      local file = next(changes)
+      local _, _, lnum = line:find("@@ -%d+,%d+ \\+(%d+)")
+      if file and lnum then
+        table.insert(changes[file], tonumber(lnum))
+      end
+    end
+  end
+  return changes
+end
+
+H.update_signs = function(bufnr)
+  bufnr = bufnr or vim.api.nvim_get_current_buf()
+  local file = vim.api.nvim_buf_get_name(bufnr)
+  local diff_output = vim.fn.system("svn diff " .. file)
+  local changes = H.parse_diff(diff_output)
+
+  vim.fn.sign_unplace("svn_signs", { buffer = bufnr })
+  for _, lnum in ipairs(changes[file] or {}) do
+    vim.fn.sign_place(0, "svn_signs", "SvnSignChange", bufnr, { lnum = lnum, priority = 100 })
+  end
 end
 
 return GeneroTools

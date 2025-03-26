@@ -1196,31 +1196,61 @@ end
 
 H.parse_diff = function(diff)
   local changes = {}
-  for line in diff:gmatch("(.-)") do
+  local current_file = nil
+  local current_lnum = nil
+  local current_change = nil
+
+  for line in diff:gmatch("(.-)\n") do
+    -- Capture file name after 'Index:'
     local mod_line = line:match("^Index: (.+)")
     if mod_line then
-      changes[mod_line] = {}
+      current_file = mod_line
+      changes[current_file] = {}
     elseif line:match("^@@") then
-      local file = next(changes)
-      local _, _, lnum = line:find("@@ -%d+,%d+ \\+(%d+)")
-      if file and lnum then
-        table.insert(changes[file], tonumber(lnum))
+      -- Capture line numbers from the '@@' line
+      local _, _, old_start, new_start = line:find("@@ %-(%d+),%d+ %+(%d+),%d+ @@")
+      if new_start then
+        current_lnum = tonumber(new_start) -- start with the new line number
+      end
+    elseif line:match("^%+") and current_file and current_lnum then
+      -- Add modified/added lines to the changes list
+      table.insert(changes[current_file], current_lnum)
+      current_lnum = current_lnum + 1
+    elseif line:match("^%-") then
+      -- Deletions (we don’t need to handle this for signs)
+    elseif not line:match("^%+") and not line:match("^%-") and #line > 0 then
+      -- Increment line number for unchanged lines
+      if current_lnum then
+        current_lnum = current_lnum + 1
       end
     end
   end
+
+  -- Debugging output to check parsed changes
+  -- vim.notify("Parsed changes: " .. vim.inspect(changes), vim.log.levels.DEBUG)
+
   return changes
 end
 
 H.update_signs = function(bufnr)
   bufnr = bufnr or vim.api.nvim_get_current_buf()
-  local file = vim.api.nvim_buf_get_name(bufnr)
+  local file = vim.api.nvim_buf_get_name(vim.api.nvim_get_current_buf())
   local diff_output = vim.fn.system("svn diff " .. file)
+
+  if diff_output == "" then
+	vim.fn.sign_unplace("svn_signs", { buffer = bufnr })
+    -- vim.notify("No diff output from SVN", vim.log.levels.WARN)
+    return
+  end
+
   local changes = H.parse_diff(diff_output)
 
   vim.fn.sign_unplace("svn_signs", { buffer = bufnr })
   for _, lnum in ipairs(changes[file] or {}) do
     vim.fn.sign_place(0, "svn_signs", "SvnSignChange", bufnr, { lnum = lnum, priority = 100 })
   end
+
+  -- vim.notify("Signs placed for " .. file, vim.log.levels.INFO)  -- Debugging output
 end
 
 return GeneroTools

@@ -1217,16 +1217,16 @@ H.parse_diff = function(diff)
     elseif line:match("^%+") and current_file and current_lnum then
       if last_deleted then
         -- If a deleted line was followed by an added line, it's a modification
-        table.insert(changes[current_file], { lnum = last_deleted.lnum, type = "modified" })
+        table.insert(changes[current_file], { lnum = last_deleted.lnum, type = "SvnSignChange" })
         last_deleted = nil -- Reset after modification
       else
         -- Added line
-        table.insert(changes[current_file], { lnum = current_lnum, type = "added" })
+        table.insert(changes[current_file], { lnum = current_lnum, type = "SvnSignAdd" })
       end
       current_lnum = current_lnum + 1
     elseif line:match("^%-") and current_file and old_lnum then
       -- Deleted line
-      last_deleted = { lnum = old_lnum, type = "deleted" }
+      last_deleted = { lnum = old_lnum, type = "SvnSignDelete" }
       table.insert(changes[current_file], last_deleted)
       old_lnum = old_lnum + 1
     elseif not line:match("^%+") and not line:match("^%-") and #line > 0 then

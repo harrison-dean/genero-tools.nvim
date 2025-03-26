@@ -1197,8 +1197,8 @@ end
 H.parse_diff = function(diff)
   local changes = {}
   local current_file = nil
-  local current_lnum = nil
-  local old_lnum = nil
+  local current_lnum = 0
+  local old_lnum = 0
   local old_offset = 0
   local new_offset = 0
   local last_deleted = nil
@@ -1213,30 +1213,34 @@ H.parse_diff = function(diff)
       new_offset = 0
       last_deleted = nil
     elseif line:match("^@@") then
-      -- Capture line numbers and lengths
+      -- Capture line numbers and lengths from the @@ line
       local _, _, old_start, old_len, new_start, new_len =
         line:find("@@ %-(%d+),?(%d*) %+(%d+),?(%d*) @@")
+
+      -- Fallback to 1 if no length is provided
       old_lnum = tonumber(old_start) or 0
       current_lnum = tonumber(new_start) or 0
       old_len = tonumber(old_len) or 1
       new_len = tonumber(new_len) or 1
+
+      -- Reset offsets for the new hunk
       old_offset = 0
       new_offset = 0
       last_deleted = nil
     elseif line:match("^%+") and current_file and current_lnum then
-      -- If the previous change was a deletion, treat as a modification
+      -- If the previous change was a deletion, treat it as a modification
       if last_deleted then
-        table.insert(changes[current_file], { lnum = last_deleted.lnum, type = "SvnSignChange" })
+        table.insert(changes[current_file], { lnum = last_deleted.lnum, type = "modified" })
         last_deleted = nil
       else
-        -- Added line, use new_lnum (corrected for previous deletions)
-        table.insert(changes[current_file], { lnum = current_lnum, type = "SvnSignAdd" })
+        -- Added line, use current_lnum (corrected for deletions)
+        table.insert(changes[current_file], { lnum = current_lnum, type = "added" })
       end
       current_lnum = current_lnum + 1
       new_offset = new_offset + 1
     elseif line:match("^%-") and current_file and old_lnum then
-      -- Deleted line, use old_lnum (before shifting)
-      last_deleted = { lnum = old_lnum, type = "SignSignDelete" }
+      -- Deleted line, use old_lnum before shifting
+      last_deleted = { lnum = old_lnum + new_offset - old_offset, type = "deleted" }
       table.insert(changes[current_file], last_deleted)
       old_lnum = old_lnum + 1
       old_offset = old_offset + 1
@@ -1250,6 +1254,7 @@ H.parse_diff = function(diff)
 
   return changes
 end
+
 
 H.update_signs = function(bufnr)
   bufnr = bufnr or vim.api.nvim_get_current_buf()

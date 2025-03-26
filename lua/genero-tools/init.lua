@@ -1233,7 +1233,7 @@ H.parse_diff = function(diff)
       current_lnum = current_lnum + 1
     elseif line:match("^%-") and current_file and old_lnum then
       -- Deleted line
-      last_deleted = { lnum = old_lnum + old_offset, type = "SignSignDelete" }
+      last_deleted = { lnum = old_lnum + old_offset, type = "SvnSignDelete" }
       table.insert(changes[current_file], last_deleted)
       old_offset = old_offset + 1
       old_lnum = old_lnum + 1

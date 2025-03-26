@@ -1267,7 +1267,7 @@ H.update_signs = function(bufnr)
   -- for _, change in ipairs(changes[file] or {}) do
   --   vim.fn.sign_place(0, "svn_signs", change.type, bufnr, { lnum = change.lnum, priority = 1 })
   -- end
-	local changes = H.parse_diff(diff)
+	local changes = H.parse_diff(diff_output)
 	local ns_id = vim.api.nvim_create_namespace("svn_signs")
 
 	for file, file_changes in pairs(changes) do

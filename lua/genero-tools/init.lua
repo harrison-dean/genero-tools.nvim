@@ -1244,7 +1244,7 @@ H.update_signs = function(bufnr)
 
   vim.fn.sign_unplace("svn_signs", { buffer = bufnr })
   for _, lnum in ipairs(changes[file] or {}) do
-    vim.fn.sign_place(0, "svn_signs", "SvnSignChange", bufnr, { lnum = lnum, priority = 100 })
+    vim.fn.sign_place(0, "svn_signs", "SvnSignChange", bufnr, { lnum = lnum, priority = 1 })
   end
 
 end

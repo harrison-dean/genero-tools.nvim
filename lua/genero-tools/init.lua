@@ -1199,8 +1199,9 @@ H.parse_diff = function(diff)
   local current_file = nil
   local current_lnum = nil
   local old_lnum = nil
+  local old_offset = 0
+  local new_offset = 0
   local last_deleted = nil
-  local current_offset = 0
 
   for line in diff:gmatch("(.-)\n") do
     -- Capture file name after 'Index:'
@@ -1208,36 +1209,41 @@ H.parse_diff = function(diff)
     if mod_line then
       current_file = mod_line
       changes[current_file] = {}
-      current_offset = 0
+      old_offset = 0
+      new_offset = 0
       last_deleted = nil
     elseif line:match("^@@") then
-      -- Capture line numbers from the @@ line
-      local _, _, old_start, old_len, new_start, new_len = line:find("@@ %-(%d+),?(%d*) %+(%d+),?(%d*) @@")
+      -- Capture line numbers and lengths
+      local _, _, old_start, old_len, new_start, new_len =
+        line:find("@@ %-(%d+),?(%d*) %+(%d+),?(%d*) @@")
       old_lnum = tonumber(old_start) or 0
       current_lnum = tonumber(new_start) or 0
       old_len = tonumber(old_len) or 1
       new_len = tonumber(new_len) or 1
-      current_offset = 0
+      old_offset = 0
+      new_offset = 0
       last_deleted = nil
     elseif line:match("^%+") and current_file and current_lnum then
+      -- If the previous change was a deletion, treat as a modification
       if last_deleted then
-        -- Treat consecutive -/+ as a modified line
         table.insert(changes[current_file], { lnum = last_deleted.lnum, type = "SvnSignChange" })
         last_deleted = nil
       else
-        -- Added line, use current_lnum + offset
-        table.insert(changes[current_file], { lnum = current_lnum + current_offset, type = "SvnSignAdd" })
+        -- Added line, use new_lnum (corrected for previous deletions)
+        table.insert(changes[current_file], { lnum = current_lnum, type = "SvnSignAdd" })
       end
-      current_offset = current_offset + 1
+      current_lnum = current_lnum + 1
+      new_offset = new_offset + 1
     elseif line:match("^%-") and current_file and old_lnum then
-      -- Deleted line, use old_lnum and mark as deleted
-      last_deleted = { lnum = old_lnum + current_offset, type = "SvnSignDelete" }
+      -- Deleted line, use old_lnum (before shifting)
+      last_deleted = { lnum = old_lnum, type = "SignSignDelete" }
       table.insert(changes[current_file], last_deleted)
-    elseif not line:match("^%+") and not line:match("^%-") and #line > 0 then
-      -- Unchanged line, increment both line counters
+      old_lnum = old_lnum + 1
+      old_offset = old_offset + 1
+    elseif #line > 0 then
+      -- Unchanged line: Sync line numbers
       old_lnum = old_lnum + 1
       current_lnum = current_lnum + 1
-      current_offset = current_offset + 1
       last_deleted = nil
     end
   end

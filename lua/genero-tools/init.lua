@@ -1189,7 +1189,7 @@ H.define_signs = function()
     vim.fn.sign_define(sign.name, {
       text = sign.text,
       texthl = sign.texthl,
-      numhl = sign.texthl,
+      -- numhl = sign.texthl,
     })
   end
 end

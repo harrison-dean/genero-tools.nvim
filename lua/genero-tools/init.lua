@@ -1223,17 +1223,17 @@ H.parse_diff = function(diff)
     elseif line:match("^%+") and current_file and current_lnum then
       if last_deleted then
         -- If the previous line was deleted, treat it as a modification
-        table.insert(changes[current_file], { lnum = last_deleted.lnum + old_offset, type = "modified" })
+        table.insert(changes[current_file], { lnum = last_deleted.lnum + old_offset, type = "SvnSignChange" })
         last_deleted = nil -- Reset after modification
       else
         -- Added line
-        table.insert(changes[current_file], { lnum = current_lnum + new_offset, type = "added" })
+        table.insert(changes[current_file], { lnum = current_lnum + new_offset, type = "SvnSignAdd" })
       end
       new_offset = new_offset + 1
       current_lnum = current_lnum + 1
     elseif line:match("^%-") and current_file and old_lnum then
       -- Deleted line
-      last_deleted = { lnum = old_lnum + old_offset, type = "deleted" }
+      last_deleted = { lnum = old_lnum + old_offset, type = "SignSignDelete" }
       table.insert(changes[current_file], last_deleted)
       old_offset = old_offset + 1
       old_lnum = old_lnum + 1
@@ -1264,28 +1264,28 @@ H.update_signs = function(bufnr)
   local changes = H.parse_diff(diff_output)
 
   vim.fn.sign_unplace("svn_signs", { buffer = bufnr })
-  -- for _, change in ipairs(changes[file] or {}) do
-  --   vim.fn.sign_place(0, "svn_signs", change.type, bufnr, { lnum = change.lnum, priority = 1 })
-  -- end
-	local changes = H.parse_diff(diff_output)
-	local ns_id = vim.api.nvim_create_namespace("svn_signs")
-
-	for file, file_changes in pairs(changes) do
-	for _, change in ipairs(file_changes) do
-		local sign_type = change.type == "added" and "GitSignsAdd"
-		or change.type == "modified" and "GitSignsChange"
-		or "GitSignsDelete"
-		-- Define sign text for each type
-		local sign_text = change.type == "added" and "+"
-		or change.type == "modified" and "~"
-		or "-"
-		-- Place sign with correct line number (adjust for Lua 1-based index)
-		vim.api.nvim_buf_set_extmark(0, ns_id, change.lnum - 1, 0, {
-		sign_text = sign_text,
-		sign_hl_group = sign_type
-		})
-	end
-	end
+  for _, change in ipairs(changes[file] or {}) do
+    vim.fn.sign_place(0, "svn_signs", change.type, bufnr, { lnum = change.lnum, priority = 1 })
+  end
+	-- local changes = H.parse_diff(diff_output)
+	-- local ns_id = vim.api.nvim_create_namespace("svn_signs")
+	--
+	-- for file, file_changes in pairs(changes) do
+	-- for _, change in ipairs(file_changes) do
+	-- 	local sign_type = change.type == "added" and "GitSignsAdd"
+	-- 	or change.type == "modified" and "GitSignsChange"
+	-- 	or "GitSignsDelete"
+	-- 	-- Define sign text for each type
+	-- 	local sign_text = change.type == "added" and "+"
+	-- 	or change.type == "modified" and "~"
+	-- 	or "-"
+	-- 	-- Place sign with correct line number (adjust for Lua 1-based index)
+	-- 	vim.api.nvim_buf_set_extmark(0, ns_id, change.lnum - 1, 0, {
+	-- 	sign_text = sign_text,
+	-- 	sign_hl_group = sign_type
+	-- 	})
+	-- end
+	-- end
 
 end
 

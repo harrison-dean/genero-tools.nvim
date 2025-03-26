@@ -1230,17 +1230,17 @@ H.parse_diff = function(diff)
     elseif line:match("^%+") and current_file and current_lnum then
       -- If the previous change was a deletion, treat it as a modification
       if last_deleted then
-        table.insert(changes[current_file], { lnum = last_deleted.lnum, type = "modified" })
+        table.insert(changes[current_file], { lnum = last_deleted.lnum, type = "SvnSignChange" })
         last_deleted = nil
       else
         -- Added line, use current_lnum (corrected for deletions)
-        table.insert(changes[current_file], { lnum = current_lnum, type = "added" })
+        table.insert(changes[current_file], { lnum = current_lnum, type = "SvnSignAdd" })
       end
       current_lnum = current_lnum + 1
       new_offset = new_offset + 1
     elseif line:match("^%-") and current_file and old_lnum then
       -- Deleted line, use old_lnum before shifting
-      last_deleted = { lnum = old_lnum + new_offset - old_offset, type = "deleted" }
+      last_deleted = { lnum = old_lnum + new_offset - old_offset, type = "SvnSignDelete" }
       table.insert(changes[current_file], last_deleted)
       old_lnum = old_lnum + 1
       old_offset = old_offset + 1

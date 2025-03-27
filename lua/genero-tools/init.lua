@@ -1197,19 +1197,21 @@ end
 H.parse_diff = function(diff)
   local changes = {}
   local current_file = nil
-  local current_lnum = 0
-  local old_lnum = 0
-  local new_offset = 0
-  local last_deleted = nil
+  local old_lnum, new_lnum = 0, 0
+  local deleted_lines, added_lines = 0, 0
+  local cumulative_offset = 0
+  local last_deleted_lnum = nil -- Track for modified detection
 
   for line in diff:gmatch("(.-)\n") do
-    -- Capture file name after 'Index:'
+    -- Capture the file name after 'Index:'
     local mod_line = line:match("^Index: (.+)")
     if mod_line then
       current_file = mod_line
       changes[current_file] = {}
-      new_offset = 0
-      last_deleted = nil
+      old_lnum, new_lnum = 0, 0
+      deleted_lines, added_lines = 0, 0
+      cumulative_offset = 0
+      last_deleted_lnum = nil
     elseif line:match("^@@") then
       -- Capture line numbers from the '@@' line
       local _, _, old_start, old_len, new_start, new_len =
@@ -1217,36 +1219,42 @@ H.parse_diff = function(diff)
 
       -- Default lengths to 1 if missing
       old_lnum = tonumber(old_start) or 0
-      current_lnum = tonumber(new_start) or 0
+      new_lnum = tonumber(new_start) or 0
       old_len = tonumber(old_len) or 1
       new_len = tonumber(new_len) or 1
 
-      -- Reset state at the start of a new hunk
-      new_offset = 0
-      last_deleted = nil
-    elseif line:match("^%+") and current_file and current_lnum then
-      if last_deleted then
-        -- Modification: If a deletion was followed by an addition
-        table.insert(changes[current_file], { lnum = last_deleted.lnum, type = "SvnSignChange" })
-        last_deleted = nil
+      -- Adjust for cumulative changes
+      old_lnum = old_lnum + cumulative_offset
+      new_lnum = new_lnum + cumulative_offset
+      deleted_lines, added_lines = 0, 0
+      last_deleted_lnum = nil
+    elseif line:match("^%+") and current_file then
+      -- Added line
+      if last_deleted_lnum then
+        -- If the last line was deleted, this is a modified line
+        table.insert(changes[current_file], { lnum = last_deleted_lnum, type = "SvnSignChange" })
+        last_deleted_lnum = nil -- Reset tracker
       else
-        -- Added line
-        table.insert(changes[current_file], { lnum = current_lnum + new_offset, type = "SvnSignAdd" })
+        table.insert(changes[current_file], { lnum = new_lnum, type = "SvnSignAdd" })
       end
-      new_offset = new_offset + 1
-    elseif line:match("^%-") and current_file and old_lnum then
+      new_lnum = new_lnum + 1
+      added_lines = added_lines + 1
+    elseif line:match("^%-") and current_file then
       -- Deleted line
-      last_deleted = { lnum = old_lnum, type = "SvnSignDelete" }
-      table.insert(changes[current_file], last_deleted)
+      table.insert(changes[current_file], { lnum = old_lnum, type = "SvnSignDelete" })
+      last_deleted_lnum = old_lnum -- Track for potential modification
       old_lnum = old_lnum + 1
-    elseif #line > 0 then
-      -- Unchanged line - sync line numbers
-      if last_deleted then
-        table.insert(changes[current_file], last_deleted)
-        last_deleted = nil
-      end
+      deleted_lines = deleted_lines + 1
+    elseif #line > 0 and current_file then
+      -- Unchanged line - increment both
       old_lnum = old_lnum + 1
-      current_lnum = current_lnum + 1
+      new_lnum = new_lnum + 1
+      last_deleted_lnum = nil -- Reset tracker
+    end
+
+    -- Update cumulative offset after the hunk is parsed
+    if line:match("^@@") then
+      cumulative_offset = cumulative_offset + (added_lines - deleted_lines)
     end
   end
 

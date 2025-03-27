@@ -1179,82 +1179,82 @@ end
 
 
 H.signs = {
-  added = { name = "SvnSignAdd", text = "▎", texthl = "MiniDiffSignAdd" },
-  modified = { name = "SvnSignChange", text = "▎", texthl = "MiniDiffSignChange" },
-  deleted = { name = "SvnSignDelete", text = "", texthl = "MiniDiffSignDelete" },
+	added = { name = "SvnSignAdd", text = "▎", texthl = "MiniDiffSignAdd" },
+	modified = { name = "SvnSignChange", text = "▎", texthl = "MiniDiffSignChange" },
+	deleted = { name = "SvnSignDelete", text = "", texthl = "MiniDiffSignDelete" },
 }
 
 H.define_signs = function()
-  for _, sign in pairs(H.signs) do
-    vim.fn.sign_define(sign.name, {
-      text = sign.text,
-      texthl = sign.texthl,
-      -- numhl = sign.texthl,
-    })
-  end
+	for _, sign in pairs(H.signs) do
+		vim.fn.sign_define(sign.name, {
+			text = sign.text,
+			texthl = sign.texthl,
+			-- numhl = sign.texthl,
+		})
+	end
 end
 
 H.parse_diff = function(diff)
-  local hunks = {}
-  local hunk = nil
-  local line_offset = 0 -- Correctly track line movements
+	local hunks = {}
+	local hunk = nil
+	local line_offset = 0 -- Correctly track line movements
 
-  for _, line in ipairs(vim.split(diff, '\n')) do
-    -- Match hunk header, e.g., @@ -3,5 +6,7 @@
-    local a_start, a_count, b_start, b_count = line:match('^@@ %-(%d+),?(%d*) %+(%d+),?(%d*) @@')
-    if a_start then
-      a_start, a_count, b_start, b_count =
-        tonumber(a_start), tonumber(a_count) or 1, tonumber(b_start), tonumber(b_count) or 1
+	for _, line in ipairs(vim.split(diff, '\n')) do
+		-- Match hunk header, e.g., @@ -3,5 +6,7 @@
+		local a_start, a_count, b_start, b_count = line:match('^@@ %-(%d+),?(%d*) %+(%d+),?(%d*) @@')
+		if a_start then
+			a_start, a_count, b_start, b_count =
+			tonumber(a_start), tonumber(a_count) or 1, tonumber(b_start), tonumber(b_count) or 1
 
-      -- Initialize a new hunk
-      hunk = {
-        start = b_start, -- Correct starting point in new file
-        lines = {},
-        added = 0,
-        removed = 0,
-        current_line = b_start, -- Track current line for adding
-        change_offset = 0, -- Track offset to handle modified lines
-      }
-      table.insert(hunks, hunk)
-      line_offset = b_start - 1 -- Initialize line offset for this hunk
-    elseif hunk then
-      -- Handle additions, deletions, and change lines
-      if line:sub(1, 1) == '-' then
-        hunk.removed = hunk.removed + 1
-        table.insert(hunk.lines, {
-          type = 'delete',
-          lnum = hunk.current_line + hunk.change_offset,
-        })
-        -- Deleted lines don’t increment current_line but affect change offset
-        hunk.change_offset = hunk.change_offset - 1
-      elseif line:sub(1, 1) == '+' then
-        -- Check if previous line was a deletion, indicating a change
-        if hunk.removed > 0 and hunk.added == 0 then
-          table.insert(hunk.lines, {
-            type = 'change',
-            lnum = hunk.current_line,
-          })
-          -- Reset counters to mark change handled
-          hunk.removed = 0
-          hunk.added = 0
-        else
-          -- Add new line normally if no preceding deletion
-          hunk.added = hunk.added + 1
-          table.insert(hunk.lines, {
-            type = 'add',
-            lnum = hunk.current_line,
-          })
-        end
-        hunk.current_line = hunk.current_line + 1
-      else
-        -- Unmodified/context lines, just advance line count
-        hunk.current_line = hunk.current_line + 1
-        hunk.change_offset = 0 -- Reset change offset after context line
-      end
-    end
-  end
+			-- Initialize a new hunk
+			hunk = {
+				start = b_start, -- Correct starting point in new file
+				lines = {},
+				added = 0,
+				removed = 0,
+				current_line = b_start, -- Track current line for adding
+				change_offset = 0, -- Track offset to handle modified lines
+			}
+			table.insert(hunks, hunk)
+			line_offset = b_start - 1 -- Initialize line offset for this hunk
+		elseif hunk then
+			-- Handle additions, deletions, and change lines
+			if line:sub(1, 1) == '-' then
+				hunk.removed = hunk.removed + 1
+				table.insert(hunk.lines, {
+					type = 'delete',
+					lnum = hunk.current_line + hunk.change_offset,
+				})
+				-- Deleted lines don’t increment current_line but affect change offset
+				hunk.change_offset = hunk.change_offset - 1
+			elseif line:sub(1, 1) == '+' then
+				-- Check if previous line was a deletion, indicating a change
+				if hunk.removed > 0 and hunk.added == 0 then
+					table.insert(hunk.lines, {
+						type = 'change',
+						lnum = hunk.current_line,
+					})
+					-- Reset counters to mark change handled
+					hunk.removed = 0
+					hunk.added = 0
+				else
+					-- Add new line normally if no preceding deletion
+					hunk.added = hunk.added + 1
+					table.insert(hunk.lines, {
+						type = 'add',
+						lnum = hunk.current_line,
+					})
+				end
+				hunk.current_line = hunk.current_line + 1
+			else
+				-- Unmodified/context lines, just advance line count
+				hunk.current_line = hunk.current_line + 1
+				hunk.change_offset = 0 -- Reset change offset after context line
+			end
+		end
+	end
 
-  return hunks
+	return hunks
 end
 
 H.add_sign = function(bufnr, lnum, sign_type)
@@ -1263,61 +1263,32 @@ end
 
 
 H.apply_svn_signs = function(bufnr, hunks)
-  for _, hunk in ipairs(hunks) do
-    for _, line in ipairs(hunk.lines) do
-      if line.type == 'add' then
-        H.add_sign(bufnr, line.lnum, 'SvnSignAdd')
-      elseif line.type == 'delete' then
-        H.add_sign(bufnr, line.lnum, 'SvnSignDelete')
-      elseif line.type == 'change' then
-        H.add_sign(bufnr, line.lnum, 'SvnSignChange')
-      end
-    end
-  end
+	for _, hunk in ipairs(hunks) do
+		for _, line in ipairs(hunk.lines) do
+			if line.type == 'add' then
+				H.add_sign(bufnr, line.lnum, 'SvnSignAdd')
+			elseif line.type == 'delete' then
+				H.add_sign(bufnr, line.lnum, 'SvnSignDelete')
+			elseif line.type == 'change' then
+				H.add_sign(bufnr, line.lnum, 'SvnSignChange')
+			end
+		end
+	end
 end
 
 H.update_signs = function(bufnr)
-  bufnr = bufnr or vim.api.nvim_get_current_buf()
-  local file = vim.api.nvim_buf_get_name(vim.api.nvim_get_current_buf())
-  local diff_output = vim.fn.system("svn diff " .. file)
+	bufnr = bufnr or vim.api.nvim_get_current_buf()
+	local file = vim.api.nvim_buf_get_name(vim.api.nvim_get_current_buf())
+	local diff_output = vim.fn.system("svn diff " .. file)
 
-  if diff_output == "" then
-	vim.fn.sign_unplace("svn_signs", { buffer = bufnr })
-    return
-
-  end
-
-  -- local changes = H.parse_diff(diff_output)
-  --
-  -- vim.fn.sign_unplace("svn_signs", { buffer = bufnr })
-  -- for _, change in ipairs(changes[file] or {}) do
-  --   vim.fn.sign_place(0, "svn_signs", change.type, bufnr, { lnum = change.lnum, priority = 1 })
-  -- end
+	if diff_output == "" then
+		vim.fn.sign_unplace("svn_signs", { buffer = bufnr })
+		return
+	end
 
 	local hunks = H.parse_diff(diff_output)
 	vim.fn.sign_unplace('svn_signs', { buffer = bufnr }) -- Clear existing signs
 	H.apply_svn_signs(bufnr, hunks)
-
-
-	-- local changes = H.parse_diff(diff_output)
-	-- local ns_id = vim.api.nvim_create_namespace("svn_signs")
-	--
-	-- for file, file_changes in pairs(changes) do
-	-- for _, change in ipairs(file_changes) do
-	-- 	local sign_type = change.type == "added" and "GitSignsAdd"
-	-- 	or change.type == "modified" and "GitSignsChange"
-	-- 	or "GitSignsDelete"
-	-- 	-- Define sign text for each type
-	-- 	local sign_text = change.type == "added" and "+"
-	-- 	or change.type == "modified" and "~"
-	-- 	or "-"
-	-- 	-- Place sign with correct line number (adjust for Lua 1-based index)
-	-- 	vim.api.nvim_buf_set_extmark(0, ns_id, change.lnum - 1, 0, {
-	-- 	sign_text = sign_text,
-	-- 	sign_hl_group = sign_type
-	-- 	})
-	-- end
-	-- end
 
 end
 

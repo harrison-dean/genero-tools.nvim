@@ -1195,70 +1195,85 @@ H.define_signs = function()
 end
 
 H.parse_diff = function(diff)
-  local changes = {}
-  local current_file = nil
-  local old_lnum, new_lnum = 0, 0
-  local deleted_lines, added_lines = 0, 0
-  local cumulative_offset = 0
-  local last_deleted_lnum = nil -- Track for modified detection
+  local hunks = {}
+  local hunk = nil
+  local line_offset = 0 -- Correctly track line movements
 
-  for line in diff:gmatch("(.-)\n") do
-    -- Capture the file name after 'Index:'
-    local mod_line = line:match("^Index: (.+)")
-    if mod_line then
-      current_file = mod_line
-      changes[current_file] = {}
-      old_lnum, new_lnum = 0, 0
-      deleted_lines, added_lines = 0, 0
-      cumulative_offset = 0
-      last_deleted_lnum = nil
-    elseif line:match("^@@") then
-      -- Capture line numbers from the '@@' line
-      local _, _, old_start, old_len, new_start, new_len =
-        line:find("@@ %-(%d+),?(%d*) %+(%d+),?(%d*) @@")
+  for _, line in ipairs(vim.split(diff, '\n')) do
+    -- Match hunk header, e.g., @@ -3,5 +6,7 @@
+    local a_start, a_count, b_start, b_count = line:match('^@@ %-(%d+),?(%d*) %+(%d+),?(%d*) @@')
+    if a_start then
+      a_start, a_count, b_start, b_count =
+        tonumber(a_start), tonumber(a_count) or 1, tonumber(b_start), tonumber(b_count) or 1
 
-      -- Default lengths to 1 if missing
-      old_lnum = tonumber(old_start) or 0
-      new_lnum = tonumber(new_start) or 0
-      old_len = tonumber(old_len) or 1
-      new_len = tonumber(new_len) or 1
-
-      -- Adjust for cumulative changes
-      old_lnum = old_lnum + cumulative_offset
-      new_lnum = new_lnum + cumulative_offset
-      deleted_lines, added_lines = 0, 0
-      last_deleted_lnum = nil
-    elseif line:match("^%+") and current_file then
-      -- Added line
-      if last_deleted_lnum then
-        -- If the last line was deleted, this is a modified line
-        table.insert(changes[current_file], { lnum = last_deleted_lnum, type = "SvnSignChange" })
-        last_deleted_lnum = nil -- Reset tracker
+      -- Initialize a new hunk
+      hunk = {
+        start = b_start, -- Correct starting point in new file
+        lines = {},
+        added = 0,
+        removed = 0,
+        current_line = b_start, -- Track current line for adding
+        change_offset = 0, -- Track offset to handle modified lines
+      }
+      table.insert(hunks, hunk)
+      line_offset = b_start - 1 -- Initialize line offset for this hunk
+    elseif hunk then
+      -- Handle additions, deletions, and change lines
+      if line:sub(1, 1) == '-' then
+        hunk.removed = hunk.removed + 1
+        table.insert(hunk.lines, {
+          type = 'delete',
+          lnum = hunk.current_line + hunk.change_offset,
+        })
+        -- Deleted lines don’t increment current_line but affect change offset
+        hunk.change_offset = hunk.change_offset - 1
+      elseif line:sub(1, 1) == '+' then
+        -- Check if previous line was a deletion, indicating a change
+        if hunk.removed > 0 and hunk.added == 0 then
+          table.insert(hunk.lines, {
+            type = 'change',
+            lnum = hunk.current_line,
+          })
+          -- Reset counters to mark change handled
+          hunk.removed = 0
+          hunk.added = 0
+        else
+          -- Add new line normally if no preceding deletion
+          hunk.added = hunk.added + 1
+          table.insert(hunk.lines, {
+            type = 'add',
+            lnum = hunk.current_line,
+          })
+        end
+        hunk.current_line = hunk.current_line + 1
       else
-        table.insert(changes[current_file], { lnum = new_lnum, type = "SvnSignAdd" })
+        -- Unmodified/context lines, just advance line count
+        hunk.current_line = hunk.current_line + 1
+        hunk.change_offset = 0 -- Reset change offset after context line
       end
-      new_lnum = new_lnum + 1
-      added_lines = added_lines + 1
-    elseif line:match("^%-") and current_file then
-      -- Deleted line
-      table.insert(changes[current_file], { lnum = old_lnum, type = "SvnSignDelete" })
-      last_deleted_lnum = old_lnum -- Track for potential modification
-      old_lnum = old_lnum + 1
-      deleted_lines = deleted_lines + 1
-    elseif #line > 0 and current_file then
-      -- Unchanged line - increment both
-      old_lnum = old_lnum + 1
-      new_lnum = new_lnum + 1
-      last_deleted_lnum = nil -- Reset tracker
-    end
-
-    -- Update cumulative offset after the hunk is parsed
-    if line:match("^@@") then
-      cumulative_offset = cumulative_offset + (added_lines - deleted_lines)
     end
   end
 
-  return changes
+  return hunks
+end
+
+H.add_sign = function(bufnr, lnum, sign_type)
+	vim.fn.sign_place(0, "svn_signs", sign_type, bufnr, {lnum = lnum, priority = 10})
+end
+
+
+H.apply_svn_signs = function(bufnr, hunks)
+  for _, hunk in ipairs(hunks) do
+    for _, line in ipairs(hunk.lines) do
+      if line.type == 'add' then
+        H.add_sign(bufnr, line.lnum, 'SvnSignAdd')
+      elseif line.type == 'delete' then
+        H.add_sign(bufnr, line.lnum, 'SvnSignDelete')
+      elseif line.type == 'change' then
+        H.add_sign(bufnr, line.lnum, 'SvnSignChange')
+      end
+    end
+  end
 end
 
 H.update_signs = function(bufnr)
@@ -1272,12 +1287,18 @@ H.update_signs = function(bufnr)
 
   end
 
-  local changes = H.parse_diff(diff_output)
+  -- local changes = H.parse_diff(diff_output)
+  --
+  -- vim.fn.sign_unplace("svn_signs", { buffer = bufnr })
+  -- for _, change in ipairs(changes[file] or {}) do
+  --   vim.fn.sign_place(0, "svn_signs", change.type, bufnr, { lnum = change.lnum, priority = 1 })
+  -- end
+	
+	local hunks = H.parse_diff(diff_output)
+	vim.fn.sign_unplace('svn_signs', { buffer = bufnr }) -- Clear existing signs
+	H.apply_svn_signs(bufnr, hunks)
 
-  vim.fn.sign_unplace("svn_signs", { buffer = bufnr })
-  for _, change in ipairs(changes[file] or {}) do
-    vim.fn.sign_place(0, "svn_signs", change.type, bufnr, { lnum = change.lnum, priority = 1 })
-  end
+
 	-- local changes = H.parse_diff(diff_output)
 	-- local ns_id = vim.api.nvim_create_namespace("svn_signs")
 	--

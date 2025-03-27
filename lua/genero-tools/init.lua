@@ -1293,7 +1293,7 @@ H.update_signs = function(bufnr)
   -- for _, change in ipairs(changes[file] or {}) do
   --   vim.fn.sign_place(0, "svn_signs", change.type, bufnr, { lnum = change.lnum, priority = 1 })
   -- end
-	
+
 	local hunks = H.parse_diff(diff_output)
 	vim.fn.sign_unplace('svn_signs', { buffer = bufnr }) -- Clear existing signs
 	H.apply_svn_signs(bufnr, hunks)

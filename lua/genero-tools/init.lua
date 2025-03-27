@@ -1199,7 +1199,6 @@ H.parse_diff = function(diff)
   local current_file = nil
   local current_lnum = 0
   local old_lnum = 0
-  local old_offset = 0
   local new_offset = 0
   local last_deleted = nil
 
@@ -1209,43 +1208,45 @@ H.parse_diff = function(diff)
     if mod_line then
       current_file = mod_line
       changes[current_file] = {}
-      old_offset = 0
       new_offset = 0
       last_deleted = nil
     elseif line:match("^@@") then
-      -- Capture line numbers and lengths from the @@ line
+      -- Capture line numbers from the '@@' line
       local _, _, old_start, old_len, new_start, new_len =
         line:find("@@ %-(%d+),?(%d*) %+(%d+),?(%d*) @@")
 
-      -- Default lengths to 1 if not provided
+      -- Default lengths to 1 if missing
       old_lnum = tonumber(old_start) or 0
       current_lnum = tonumber(new_start) or 0
       old_len = tonumber(old_len) or 1
       new_len = tonumber(new_len) or 1
 
-      -- Reset offsets for the new hunk
-      old_offset = 0
+      -- Reset state at the start of a new hunk
       new_offset = 0
       last_deleted = nil
     elseif line:match("^%+") and current_file and current_lnum then
       if last_deleted then
-        -- If a deletion was detected just before an addition → it's a modified line
+        -- Modification: If a deletion was followed by an addition
         table.insert(changes[current_file], { lnum = last_deleted.lnum, type = "SvnSignChange" })
-        last_deleted = nil -- Reset after recording modification
+        last_deleted = nil
       else
-        -- Added line, place on current_lnum
+        -- Added line
         table.insert(changes[current_file], { lnum = current_lnum + new_offset, type = "SvnSignAdd" })
       end
       new_offset = new_offset + 1
     elseif line:match("^%-") and current_file and old_lnum then
-      -- Store deletion for potential modification check
-      last_deleted = { lnum = old_lnum + old_offset, type = "SvnSignDelete" }
-      old_offset = old_offset + 1
+      -- Deleted line
+      last_deleted = { lnum = old_lnum, type = "SvnSignDelete" }
+      table.insert(changes[current_file], last_deleted)
+      old_lnum = old_lnum + 1
     elseif #line > 0 then
-      -- Unchanged line: Sync line numbers
+      -- Unchanged line - sync line numbers
+      if last_deleted then
+        table.insert(changes[current_file], last_deleted)
+        last_deleted = nil
+      end
       old_lnum = old_lnum + 1
       current_lnum = current_lnum + 1
-      last_deleted = nil -- Clear last_deleted on encountering an unchanged line
     end
   end
 
